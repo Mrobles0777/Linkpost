@@ -38,12 +38,26 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini (Banana mode) for topic:", topic);
+    console.log("Calling Gemini (Flash mode) for topic:", topic);
     const response = await ai.models.generateContent({
-      model: "gemini-flash-lite-latest",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            hook: { type: Type.STRING },
+            body: { type: Type.STRING },
+            cta: { type: Type.STRING },
+            hashtags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            imageKeywords: { type: Type.STRING }
+          },
+          required: ["hook", "body", "cta", "hashtags", "imageKeywords"]
+        }
       }
     });
 

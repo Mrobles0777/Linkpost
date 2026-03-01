@@ -972,10 +972,10 @@ export default function App() {
                   )}
 
                   <div className="px-4 pb-4 space-y-4 text-sm text-gray-800 pt-4">
-                    <p className="font-bold">{post.hook}</p>
-                    <p className="whitespace-pre-wrap">{post.body}</p>
-                    <p className="font-medium text-[#0A66C2]">{post.cta}</p>
-                    <p className="text-[#0A66C2] font-medium">{post.hashtags.join(' ')}</p>
+                    <p className="font-bold">{post?.hook || ''}</p>
+                    <p className="whitespace-pre-wrap">{post?.body || ''}</p>
+                    <p className="font-medium text-[#0A66C2]">{post?.cta || ''}</p>
+                    <p className="text-[#0A66C2] font-medium">{(post?.hashtags || []).join(' ')}</p>
                   </div>
                   <div className="border-t border-gray-100 p-2 flex items-center justify-around text-gray-500 font-semibold text-sm">
                     <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
