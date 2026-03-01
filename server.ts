@@ -147,16 +147,22 @@ app.get("/api/image/search", async (req, res) => {
   if (!q) return res.status(400).json({ error: "Query required" });
 
   try {
-    const keywords = encodeURIComponent((q as string).replace(/\s+/g, ','));
-    const imageUrl = `https://source.unsplash.com/featured/1200x627/?${keywords}`;
+    // Clean and limit keywords to improve Unsplash results
+    const cleanKeywords = (q as string)
+      .replace(/[,]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 5)
+      .join(',');
+
+    const imageUrl = `https://source.unsplash.com/featured/1200x627/?${encodeURIComponent(cleanKeywords)}`;
 
     // Server-side fetch follows redirects automatically
     const imgRes = await fetch(imageUrl);
     if (imgRes.ok) {
-      // Return the final static URL
       res.json({ url: imgRes.url });
     } else {
-      res.status(500).json({ error: "Failed to fetch image" });
+      res.status(500).json({ error: "Unsplash returned an error" });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });

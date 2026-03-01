@@ -1011,9 +1011,9 @@ export default function App() {
                     className="py-3 bg-white border-2 border-emerald-600 text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
                   >
                     {isGeneratingImage ? (
-                      <><RefreshCw className="w-4 h-4 animate-spin" /> Buscando...</>
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Generando...</>
                     ) : (
-                      <><Sparkles className="w-4 h-4" /> {selectedImage ? 'Cambiar Imagen' : 'Sugerir Imagen'}</>
+                      <><Sparkles className="w-4 h-4" /> {selectedImage ? 'Cambiar Imagen' : 'Generar Imagen'}</>
                     )}
                   </button>
                 </div>
