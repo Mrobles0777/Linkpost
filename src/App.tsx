@@ -403,7 +403,7 @@ export default function App() {
     setIsGeneratingImage(true);
     try {
       // Refine the prompt using Gemini first
-      const refinedPrompt = await generateImagePromptFromScript(post.imageKeywords || post.topic);
+      const refinedPrompt = await generateImagePromptFromScript(post.imageKeywords || topic);
       const proxyUrl = `/api/image/search?q=${encodeURIComponent(refinedPrompt)}`;
       const imgRes = await fetch(proxyUrl);
       if (imgRes.ok) {
