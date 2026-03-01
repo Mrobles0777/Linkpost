@@ -59,6 +59,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Profile Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -389,29 +390,31 @@ export default function App() {
     try {
       const result = await generateLinkedInContent(profile || 'Experto en Infraestructura de Datos e IA', topic, tone);
       setPost(result);
-
-      // Fetch a relevant image via our proxy (to avoid CORS)
-      if (result.imageKeywords) {
-        try {
-          const proxyUrl = `/api/image/search?q=${encodeURIComponent(result.imageKeywords)}`;
-          const imgRes = await fetch(proxyUrl);
-          if (imgRes.ok) {
-            const imgData = await imgRes.json();
-            if (imgData.url) {
-              setSelectedImage(imgData.url);
-            }
-          }
-        } catch (e) {
-          console.error("Error fetching image through proxy:", e);
-          // Fallback to a direct link
-          setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
-        }
-      }
     } catch (error: any) {
       console.error(error);
       alert(`Error al generar el contenido: ${error.message || 'Por favor, inténtalo de nuevo.'}`);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleSuggestImage = async () => {
+    if (!post || !post.imageKeywords) return;
+    setIsGeneratingImage(true);
+    try {
+      const proxyUrl = `/api/image/search?q=${encodeURIComponent(post.imageKeywords)}`;
+      const imgRes = await fetch(proxyUrl);
+      if (imgRes.ok) {
+        const imgData = await imgRes.json();
+        if (imgData.url) {
+          setSelectedImage(imgData.url);
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching image through proxy:", e);
+      setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -988,6 +991,31 @@ export default function App() {
                       <Send className="w-4 h-4" /> Compartir
                     </button>
                   </div>
+                </div>
+
+                <div className="max-w-[550px] mx-auto grid grid-cols-2 gap-3">
+                  <button
+                    onClick={copyFullPost}
+                    className="py-3 bg-white border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    {copiedSection === 'full' ? (
+                      <><Check className="w-4 h-4" /> Copiado</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> Copiar Texto</>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleSuggestImage}
+                    disabled={isGeneratingImage || !post}
+                    className="py-3 bg-white border-2 border-emerald-600 text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {isGeneratingImage ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Buscando...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4" /> {selectedImage ? 'Cambiar Imagen' : 'Sugerir Imagen'}</>
+                    )}
+                  </button>
                 </div>
 
                 <div className="max-w-[550px] mx-auto space-y-4">
