@@ -963,6 +963,9 @@ export default function App() {
                         src={selectedImage}
                         alt="Post visual"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200&auto=format&fit=crop';
+                        }}
                       />
                       <button
                         onClick={() => setSelectedImage(null)}
