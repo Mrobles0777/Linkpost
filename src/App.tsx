@@ -358,7 +358,7 @@ export default function App() {
   const handlePostToLinkedIn = async () => {
     if (!post) return;
     setIsPosting(true);
-    const fullText = `${post.hook}\n\n${post.body}\n\n${post.cta}\n\n${post.hashtags.join(' ')}`;
+    const fullText = `${post.hook}\n\n\n${post.body}\n\n\n${post.cta}\n\n\n${post.hashtags.join(' ')}`;
 
     try {
       const res = await fetch('/api/linkedin/post', {
@@ -431,7 +431,7 @@ export default function App() {
 
   const copyFullPost = () => {
     if (!post) return;
-    const fullText = `${post.hook}\n\n${post.body}\n\n${post.cta}\n\n${post.hashtags.join(' ')}`;
+    const fullText = `${post.hook}\n\n\n${post.body}\n\n\n${post.cta}\n\n\n${post.hashtags.join(' ')}`;
     copyToClipboard(fullText, 'full');
   };
 
@@ -977,9 +977,9 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="px-4 pb-4 space-y-4 text-sm text-gray-800 pt-4">
+                  <div className="px-4 pb-4 space-y-6 text-sm text-gray-800 pt-4">
                     <p className="font-bold">{post?.hook || ''}</p>
-                    <p className="whitespace-pre-wrap">{post?.body || ''}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">{post?.body || ''}</p>
                     <p className="font-medium text-[#0A66C2]">{post?.cta || ''}</p>
                     <p className="text-[#0A66C2] font-medium">{(post?.hashtags || []).join(' ')}</p>
                   </div>
