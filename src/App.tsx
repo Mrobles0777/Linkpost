@@ -68,6 +68,7 @@ export default function App() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -89,11 +90,55 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('dc_ai_profile', profile);
     if (user) {
+      fetchProfile();
       checkConnection();
+    } else {
+      setProfile(localStorage.getItem('dc_ai_profile') || '');
     }
-  }, [profile, user]);
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    setIsFetchingProfile(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('cv_content')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        if (error.code !== 'PGRST116') { // PGRST116 is "no rows found"
+          console.error('Error fetching profile:', error);
+        }
+      } else if (data?.cv_content) {
+        setProfile(data.cv_content);
+        localStorage.setItem('dc_ai_profile', data.cv_content);
+      }
+    } catch (e) {
+      console.error('Error in fetchProfile:', e);
+    } finally {
+      setIsFetchingProfile(false);
+    }
+  };
+
+  const saveProfileToSupabase = async (content: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: user.id, 
+          cv_content: content,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+    } catch (e) {
+      console.error('Error saving profile to Supabase:', e);
+    }
+  };
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -160,6 +205,10 @@ export default function App() {
 
       if (text.trim()) {
         setProfile(text.trim());
+        localStorage.setItem('dc_ai_profile', text.trim());
+        if (user) {
+          await saveProfileToSupabase(text.trim());
+        }
         setSettingsMessage({ type: 'success', text: 'CV importado correctamente' });
       } else {
         throw new Error('No se pudo extraer texto del archivo');
@@ -180,6 +229,10 @@ export default function App() {
       const summary = await summarizeCV(profile);
       if (summary) {
         setProfile(summary);
+        localStorage.setItem('dc_ai_profile', summary);
+        if (user) {
+          await saveProfileToSupabase(summary);
+        }
       }
     } catch (e) {
       console.error("Error summarizing CV:", e);
@@ -227,6 +280,7 @@ export default function App() {
     await supabase.auth.signOut();
     setIsLinkedInUser(false);
     setUser(null);
+    setProfile('');
     setLoginPassword('');
     setIsSettingsOpen(false);
   };
@@ -250,9 +304,11 @@ export default function App() {
         if (error) throw error;
       }
 
-      // Update Profile (CV) in Supabase if needed
-      // For now we sync with localStorage, but we could also save to Supabase 'profiles' table
+      // Update Profile (CV) in Supabase
       localStorage.setItem('dc_ai_profile', profile);
+      if (user) {
+        await saveProfileToSupabase(profile);
+      }
       
       setSettingsMessage({ type: 'success', text: 'Perfil actualizado con éxito' });
       setNewPassword('');
@@ -569,14 +625,22 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
+                    {isFetchingProfile && (
+                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-xl">
+                        <div className="flex flex-col items-center gap-2">
+                          <RefreshCw className="w-5 h-5 text-[#0A66C2] animate-spin" />
+                          <span className="text-[10px] font-bold text-[#0A66C2] uppercase tracking-widest">Cargando CV...</span>
+                        </div>
+                      </div>
+                    )}
                     <textarea 
                       value={profile}
                       onChange={(e) => setProfile(e.target.value)}
                       placeholder="Actualiza tu resumen profesional aquí..."
                       className="w-full h-32 p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none resize-none"
                     />
-                    <p className="text-[10px] text-gray-400 italic">Este resumen se utiliza para personalizar tus posts de LinkedIn.</p>
+                    <p className="text-[10px] text-gray-400 italic">Este resumen se guarda de forma segura en tu perfil y se utiliza para personalizar tus posts.</p>
                   </div>
                 </div>
 
@@ -683,13 +747,20 @@ export default function App() {
                     Resumir con IA
                   </button>
                 </div>
-                <textarea 
-                  value={profile}
-                  onChange={(e) => setProfile(e.target.value)}
-                  placeholder="Pega aquí tu experiencia relevante en centros de datos e IA..."
-                  className="w-full h-32 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] focus:border-transparent transition-all outline-none resize-none"
-                />
-                <p className="text-[10px] text-gray-400 mt-2 italic">Se guarda automáticamente en tu navegador.</p>
+                <div className="relative">
+                  {isFetchingProfile && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg">
+                      <RefreshCw className="w-4 h-4 text-[#0A66C2] animate-spin" />
+                    </div>
+                  )}
+                  <textarea 
+                    value={profile}
+                    onChange={(e) => setProfile(e.target.value)}
+                    placeholder="Pega aquí tu experiencia relevante en centros de datos e IA..."
+                    className="w-full h-32 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] focus:border-transparent transition-all outline-none resize-none"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2 italic">Se guarda de forma segura en tu perfil profesional.</p>
               </div>
             </div>
           </section>
