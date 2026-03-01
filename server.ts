@@ -145,22 +145,23 @@ app.get("/api/image/search", async (req, res) => {
   if (!q) return res.status(400).json({ error: "Query required" });
 
   try {
-    const rawPrompt = (q as string) || "professional data center technology";
+    const rawPrompt = (q as string) || "data center technology";
 
-    // Clean and shorten prompt significantly for better reliability
-    const cleanPrompt = rawPrompt
-      .replace(/["']/g, '')
-      .replace(/\n/g, ' ')
-      .trim()
-      .substring(0, 150);
+    // Clean prompt for tags (LoremFlickr uses comma separated tags)
+    // We extract the most meaningful words to use as Flickr tags
+    const tags = rawPrompt
+      .replace(/[^a-zA-Z]/g, ' ')
+      .split(' ')
+      .filter(w => w.length > 3)
+      .slice(0, 3)
+      .join(',') || "datacenter,technology";
 
     const seed = Math.floor(Math.random() * 1000000);
 
-    // The image.pollinations.ai subdomain is the most specific for <img> tags
-    // We use model=v01 or flux if available, nologo=true for cleaner result
-    const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1200&height=627&nologo=true&seed=${seed}&model=v01&nologo=true`;
+    // LoremFlickr provides real professional photos and is very stable.
+    const generatedImageUrl = `https://loremflickr.com/1200/627/${tags}?lock=${seed}`;
 
-    console.log(`[ImageAI] Created URL: ${generatedImageUrl}`);
+    console.log(`[ImageAI] Tags: ${tags}, URL: ${generatedImageUrl}`);
 
     res.json({ url: generatedImageUrl });
 
