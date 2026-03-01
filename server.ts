@@ -141,6 +141,28 @@ app.get("/auth/linkedin/callback", async (req, res) => {
   }
 });
 
+// API: Search Image (Proxy to avoid CORS and get static URL)
+app.get("/api/image/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: "Query required" });
+
+  try {
+    const keywords = encodeURIComponent((q as string).replace(/\s+/g, ','));
+    const imageUrl = `https://source.unsplash.com/featured/1200x627/?${keywords}`;
+
+    // Server-side fetch follows redirects automatically
+    const imgRes = await fetch(imageUrl);
+    if (imgRes.ok) {
+      // Return the final static URL
+      res.json({ url: imgRes.url });
+    } else {
+      res.status(500).json({ error: "Failed to fetch image" });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // API: Check if connected
 app.get("/api/auth/linkedin/status", async (req, res) => {
   const userId = req.query.userId as string;
