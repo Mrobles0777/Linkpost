@@ -390,20 +390,20 @@ export default function App() {
       const result = await generateLinkedInContent(profile || 'Experto en Infraestructura de Datos e IA', topic, tone);
       setPost(result);
 
-      // Fetch a relevant image from Unsplash (Source API)
+      // Fetch a relevant image via our proxy (to avoid CORS)
       if (result.imageKeywords) {
-        const keywords = encodeURIComponent(result.imageKeywords.replace(/\s+/g, ','));
-        const imageUrl = `https://source.unsplash.com/featured/1200x627/?${keywords}`;
-
-        // We follow the redirect to get a static URL for the backend later
         try {
-          const imgRes = await fetch(imageUrl);
+          const proxyUrl = `/api/image/search?q=${encodeURIComponent(result.imageKeywords)}`;
+          const imgRes = await fetch(proxyUrl);
           if (imgRes.ok) {
-            setSelectedImage(imgRes.url);
+            const imgData = await imgRes.json();
+            if (imgData.url) {
+              setSelectedImage(imgData.url);
+            }
           }
         } catch (e) {
-          console.error("Error fetching Unsplash image:", e);
-          // Fallback to a direct link if fetch fails (CORS etc)
+          console.error("Error fetching image through proxy:", e);
+          // Fallback to a direct link
           setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
         }
       }
