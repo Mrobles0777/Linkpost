@@ -147,27 +147,25 @@ app.get("/api/image/search", async (req, res) => {
   try {
     const rawPrompt = (q as string) || "professional data center technology";
 
-    // Optimize prompt: remove quotes, newlines, and limit length to 400 chars (safe for most APIs)
+    // Clean and shorten prompt significantly for better reliability
     const cleanPrompt = rawPrompt
       .replace(/["']/g, '')
       .replace(/\n/g, ' ')
       .trim()
-      .substring(0, 400);
-
-    const finalPrompt = `${cleanPrompt}, high-tech data center photography, cinematic lighting, 8k, professional`;
+      .substring(0, 150);
 
     const seed = Math.floor(Math.random() * 1000000);
-    // Use the standard pollination endpoint which is often more reliable
-    const generatedImageUrl = `https://pollinations.ai/p/${encodeURIComponent(finalPrompt)}?width=1200&height=627&nologo=true&seed=${seed}`;
 
-    console.log(`[ImageAI] Original: ${rawPrompt.substring(0, 50)}...`);
-    console.log(`[ImageAI] Final Prompt: ${finalPrompt}`);
-    console.log(`[ImageAI] Generated URL: ${generatedImageUrl}`);
+    // The image.pollinations.ai subdomain is the most specific for <img> tags
+    // We use model=v01 or flux if available, nologo=true for cleaner result
+    const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1200&height=627&nologo=true&seed=${seed}&model=v01&nologo=true`;
+
+    console.log(`[ImageAI] Created URL: ${generatedImageUrl}`);
 
     res.json({ url: generatedImageUrl });
 
   } catch (err: any) {
-    console.error(`[ImageAI] Critical Error: ${err.message}`);
+    console.error(`[ImageAI] Error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
