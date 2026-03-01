@@ -74,8 +74,16 @@ export default function App() {
 
   useEffect(() => {
     // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Supabase getSession error:', error.message);
+        alert(`Error al conectar con Supabase: ${error.message}. Verifica tu conexión o si hay un bloqueador de anuncios activo.`);
+      }
       setUser(session?.user ?? null);
+      setIsCheckingAuth(false);
+    }).catch(err => {
+      console.error('Supabase getSession critical error:', err);
+      alert('Error crítico de red al conectar con Supabase. Esto suele ser causado por un bloqueador de anuncios (como Brave Shield o uBlock) o un firewall.');
       setIsCheckingAuth(false);
     });
 
@@ -167,8 +175,11 @@ export default function App() {
       const res = await fetch(`/api/auth/linkedin/status?userId=${user.id}`);
       const data = await res.json();
       setIsConnected(data.connected);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('checkConnection error:', e);
+      if (e.message === 'Failed to fetch') {
+        console.warn('Network error detected in checkConnection. This might be a port mismatch or server down.');
+      }
     }
   };
 
@@ -325,11 +336,21 @@ export default function App() {
   const handleConnect = async (isLogin = false) => {
     try {
       const userIdParam = user ? `&userId=${user.id}` : '';
-      const res = await fetch(`/api/auth/linkedin/url?login=${isLogin}${userIdParam}`);
+      const endpoint = `/api/auth/linkedin/url?login=${isLogin}${userIdParam}`;
+      console.log('Fetching LinkedIn Auth URL from:', endpoint);
+
+      const res = await fetch(endpoint);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
+      }
+
       const { url } = await res.json();
+      console.log('LinkedIn Auth URL received:', url);
       window.open(url, 'linkedin_oauth', 'width=600,height=600');
-    } catch (e) {
-      alert('Error al conectar con LinkedIn');
+    } catch (e: any) {
+      console.error('handleConnect error:', e);
+      alert(`Error al conectar con LinkedIn: ${e.message}. \n\nEsto suele pasar si el servidor no está corriendo en el mismo puerto que la web o si hay un error en el servidor.`);
     }
   };
 

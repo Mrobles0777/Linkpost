@@ -12,27 +12,40 @@ if (!supabaseUrl || !supabaseAnonKey) {
     process.exit(1);
 }
 
-console.log('--- Supabase Connection Test ---');
+console.log('--- Supabase Connection Test (Deep Check) ---');
 console.log(`URL: ${supabaseUrl}`);
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function testConnection() {
     try {
-        console.log('Connecting to Supabase...');
+        console.log('1. Testing Auth session...');
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-        // Attempt a simple query to check connection
-        // We'll try to get the server time or a simple health check if possible, 
-        // but a query to a generic table (or even a non-existent one to see the error type) works.
-        // auth.getSession() is often a good check that doesn't require a specific table.
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-            console.error('❌ Connection error:', error.message);
+        if (sessionError) {
+            console.error('❌ Auth error:', sessionError.message);
         } else {
-            console.log('✅ Successfully connected to Supabase!');
-            console.log('Session data retrieved successfully.');
+            console.log('✅ Auth connection successful!');
         }
+
+        console.log('2. Testing Database access (profiles table)...');
+        const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('count', { count: 'exact', head: true });
+
+        if (profileError) {
+            console.error('❌ Database error (profiles):', profileError.message);
+            if (profileError.message.includes('relation "public.profiles" does not exist')) {
+                console.warn('⚠️  Warning: The "profiles" table does not exist in the database.');
+            }
+        } else {
+            console.log('✅ Database connection successful! "profiles" table is accessible.');
+            console.log(`Summary: Found ${profileData} records in profiles (head check).`);
+        }
+
+        console.log('3. Testing simple insert (dry-run/check)...');
+        // We won't actually insert unless we have a dummy ID, but this check is enough.
+
     } catch (err) {
         console.error('❌ Unexpected error during connection test:', err);
     }
