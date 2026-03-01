@@ -147,21 +147,26 @@ app.get("/api/image/search", async (req, res) => {
   try {
     const rawPrompt = (q as string) || "data center technology";
 
-    // Clean prompt for tags (LoremFlickr uses comma separated tags)
-    // We extract the most meaningful words to use as Flickr tags
-    const tags = rawPrompt
-      .replace(/[^a-zA-Z]/g, ' ')
+    // Extract meaningful technical words, avoiding common random ones
+    const extractedKeywords = rawPrompt
+      .toLowerCase()
+      .replace(/[^a-z]/g, ' ')
       .split(' ')
-      .filter(w => w.length > 3)
-      .slice(0, 3)
-      .join(',') || "datacenter,technology";
+      .filter(w => w.length > 4 && !['style', 'photo', 'professional', 'cinematic', 'lighting', 'ultra', 'detailed', 'cat'].includes(w))
+      .slice(0, 2)
+      .join(',');
+
+    // We ALWAYS prepended technical categories to force the theme.
+    // The '/all' modifier at the end makes LoremFlickr try to match all tags.
+    const tags = `business,technology,datacenter${extractedKeywords ? ',' + extractedKeywords : ''}`;
 
     const seed = Math.floor(Math.random() * 1000000);
 
-    // LoremFlickr provides real professional photos and is very stable.
-    const generatedImageUrl = `https://loremflickr.com/1200/627/${tags}?lock=${seed}`;
+    // Using /all to ensure it stays within the requested tags
+    const generatedImageUrl = `https://loremflickr.com/1200/627/${tags}/all?lock=${seed}`;
 
-    console.log(`[ImageAI] Tags: ${tags}, URL: ${generatedImageUrl}`);
+    console.log(`[ImageAI] Final Tags: ${tags}`);
+    console.log(`[ImageAI] URL: ${generatedImageUrl}`);
 
     res.json({ url: generatedImageUrl });
 
