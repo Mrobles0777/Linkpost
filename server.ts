@@ -197,7 +197,9 @@ app.post("/api/linkedin/post", async (req, res) => {
     if (postResponse.ok) {
       res.json({ success: true, data: postData });
     } else {
-      res.status(postResponse.status).json({ error: postData });
+      console.error("LinkedIn Post API Failure:", postData);
+      const errorMessage = postData.message || postData.error_description || JSON.stringify(postData);
+      res.status(postResponse.status).json({ success: false, error: { message: errorMessage, details: postData } });
     }
   } catch (error: any) {
     console.error("LinkedIn Post Error:", error);
