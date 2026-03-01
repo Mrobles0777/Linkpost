@@ -45,7 +45,6 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [post, setPost] = useState<LinkedInPost | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'blocks' | 'preview'>('blocks');
   const [isConnected, setIsConnected] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -867,32 +866,10 @@ export default function App() {
           </section>
         </div>
 
-        {/* Right Column: Output Blocks */}
+        {/* Right Column: Preview */}
         <div className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Resultado</h2>
-            {post && (
-              <div className="flex bg-gray-200 p-1 rounded-lg">
-                <button
-                  onClick={() => setViewMode('blocks')}
-                  className={cn(
-                    "px-3 py-1 text-xs font-bold rounded-md transition-all",
-                    viewMode === 'blocks' ? "bg-white text-[#0A66C2] shadow-sm" : "text-gray-500"
-                  )}
-                >
-                  Bloques
-                </button>
-                <button
-                  onClick={() => setViewMode('preview')}
-                  className={cn(
-                    "px-3 py-1 text-xs font-bold rounded-md transition-all",
-                    viewMode === 'preview' ? "bg-white text-[#0A66C2] shadow-sm" : "text-gray-500"
-                  )}
-                >
-                  Vista Previa
-                </button>
-              </div>
-            )}
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Vista Previa</h2>
           </div>
 
           <AnimatePresence mode="wait">
@@ -925,139 +902,85 @@ export default function App() {
                   </div>
                 ))}
               </motion.div>
-            ) : viewMode === 'blocks' ? (
-              <motion.div
-                key="blocks"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-6"
-              >
-                {/* Block: Hook */}
-                <PostBlock
-                  title="Hook (Gancho)"
-                  content={post.hook}
-                  onCopy={() => copyToClipboard(post.hook, 'hook')}
-                  isCopied={copiedSection === 'hook'}
-                  icon={<Zap className="w-4 h-4 text-amber-500" />}
-                />
-
-                {/* Block: Body */}
-                <PostBlock
-                  title="Cuerpo del Post"
-                  content={post.body}
-                  onCopy={() => copyToClipboard(post.body, 'body')}
-                  isCopied={copiedSection === 'body'}
-                  icon={<FileText className="w-4 h-4 text-blue-500" />}
-                  isLarge
-                />
-
-                {/* Block: CTA */}
-                <PostBlock
-                  title="Call to Action"
-                  content={post.cta}
-                  onCopy={() => copyToClipboard(post.cta, 'cta')}
-                  isCopied={copiedSection === 'cta'}
-                  icon={<ChevronRight className="w-4 h-4 text-emerald-500" />}
-                />
-
-                {/* Block: Hashtags */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-500 uppercase tracking-tight">Hashtags</span>
-                    </div>
-                    <button
-                      onClick={() => copyToClipboard(post.hashtags.join(' '), 'tags')}
-                      className="text-gray-400 hover:text-[#0A66C2] transition-colors"
-                    >
-                      {copiedSection === 'tags' ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="p-4 flex flex-wrap gap-2">
-                    {post.hashtags.map((tag, idx) => (
-                      <span key={idx} className="text-sm font-medium text-[#0A66C2] bg-[#0A66C2]/5 px-2 py-1 rounded">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={copyFullPost}
-                  className="w-full py-4 bg-white border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-2"
-                >
-                  {copiedSection === 'full' ? (
-                    <><Check className="w-5 h-5" /> Copiado al portapapeles</>
-                  ) : (
-                    <><Copy className="w-5 h-5" /> Copiar Post Completo</>
-                  )}
-                </button>
-
-                <div className="pt-4 border-t border-gray-100">
-                  {!isConnected ? (
-                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex flex-col items-center gap-3">
-                      <p className="text-xs text-amber-700 text-center font-medium">
-                        Conecta tu cuenta de LinkedIn en la sección de perfil para habilitar la publicación directa.
-                      </p>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handlePostToLinkedIn}
-                      disabled={isPosting}
-                      className={cn(
-                        "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
-                        isPosting
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20"
-                      )}
-                    >
-                      {isPosting ? (
-                        <><RefreshCw className="w-5 h-5 animate-spin" /> Publicando...</>
-                      ) : (
-                        <><Send className="w-5 h-5" /> Publicar ahora en LinkedIn</>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </motion.div>
             ) : (
               <motion.div
                 key="preview"
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden max-w-[550px] mx-auto"
+                className="space-y-6"
               >
-                <div className="p-4 flex items-start gap-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
-                    <User className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-sm hover:text-[#0A66C2] hover:underline cursor-pointer">Tu Nombre</span>
-                      <span className="text-xs text-gray-500">• 1º</span>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden max-w-[550px] mx-auto">
+                  <div className="p-4 flex items-start gap-3">
+                    <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                      <User className="w-6 h-6 text-gray-400" />
                     </div>
-                    <p className="text-xs text-gray-500 leading-tight">Experto en Centros de Datos e IA</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">Ahora • <Database className="w-2.5 h-2.5" /></p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold text-sm hover:text-[#0A66C2] hover:underline cursor-pointer">Tu Nombre</span>
+                        <span className="text-xs text-gray-500">• 1º</span>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-tight">Experto en Centros de Datos e IA</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">Ahora • <Database className="w-2.5 h-2.5" /></p>
+                    </div>
+                  </div>
+                  <div className="px-4 pb-4 space-y-4 text-sm text-gray-800">
+                    <p className="font-bold">{post.hook}</p>
+                    <p className="whitespace-pre-wrap">{post.body}</p>
+                    <p className="font-medium text-[#0A66C2]">{post.cta}</p>
+                    <p className="text-[#0A66C2] font-medium">{post.hashtags.join(' ')}</p>
+                  </div>
+                  <div className="border-t border-gray-100 p-2 flex items-center justify-around text-gray-500 font-semibold text-sm">
+                    <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
+                      <Sparkles className="w-4 h-4" /> Recomendar
+                    </button>
+                    <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
+                      <FileText className="w-4 h-4" /> Comentar
+                    </button>
+                    <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
+                      <Send className="w-4 h-4" /> Compartir
+                    </button>
                   </div>
                 </div>
-                <div className="px-4 pb-4 space-y-4 text-sm text-gray-800">
-                  <p className="font-bold">{post.hook}</p>
-                  <p className="whitespace-pre-wrap">{post.body}</p>
-                  <p className="font-medium text-[#0A66C2]">{post.cta}</p>
-                  <p className="text-[#0A66C2] font-medium">{post.hashtags.join(' ')}</p>
-                </div>
-                <div className="border-t border-gray-100 p-2 flex items-center justify-around text-gray-500 font-semibold text-sm">
-                  <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
-                    <Sparkles className="w-4 h-4" /> Recomendar
+
+                <div className="max-w-[550px] mx-auto space-y-4">
+                  <button
+                    onClick={copyFullPost}
+                    className="w-full py-4 bg-white border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-2"
+                  >
+                    {copiedSection === 'full' ? (
+                      <><Check className="w-5 h-5" /> Copiado al portapapeles</>
+                    ) : (
+                      <><Copy className="w-5 h-5" /> Copiar Post Completo</>
+                    )}
                   </button>
-                  <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
-                    <FileText className="w-4 h-4" /> Comentar
-                  </button>
-                  <button className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-1 justify-center">
-                    <Send className="w-4 h-4" /> Compartir
-                  </button>
+
+                  <div className="pt-2">
+                    {!isConnected ? (
+                      <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex flex-col items-center gap-3">
+                        <p className="text-xs text-amber-700 text-center font-medium">
+                          Conecta tu cuenta de LinkedIn en la sección de perfil para habilitar la publicación directa.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handlePostToLinkedIn}
+                        disabled={isPosting}
+                        className={cn(
+                          "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
+                          isPosting
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20"
+                        )}
+                      >
+                        {isPosting ? (
+                          <><RefreshCw className="w-5 h-5 animate-spin" /> Publicando...</>
+                        ) : (
+                          <><Send className="w-5 h-5" /> Publicar ahora en LinkedIn</>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -1068,33 +991,4 @@ export default function App() {
   );
 }
 
-interface PostBlockProps {
-  title: string;
-  content: string;
-  onCopy: () => void;
-  isCopied: boolean;
-  icon: React.ReactNode;
-  isLarge?: boolean;
-}
 
-function PostBlock({ title, content, onCopy, isCopied, icon, isLarge }: PostBlockProps) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group">
-      <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-tight">{title}</h3>
-        </div>
-        <button
-          onClick={onCopy}
-          className="text-gray-400 hover:text-[#0A66C2] transition-colors p-1 rounded-md hover:bg-gray-100"
-        >
-          {isCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-        </button>
-      </div>
-      <div className={cn("p-6 text-gray-800 leading-relaxed whitespace-pre-wrap text-[15px]", isLarge ? "min-h-[200px]" : "")}>
-        {content}
-      </div>
-    </div>
-  );
-}
