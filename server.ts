@@ -237,9 +237,20 @@ app.post("/api/linkedin/post", async (req, res) => {
       });
 
       const registerData = await registerRes.json();
-      if (!registerRes.ok) throw new Error(`LinkedIn Media Register Error: ${JSON.stringify(registerData)}`);
+      if (!registerRes.ok || !registerData.value) {
+        throw new Error(`LinkedIn Media Register Error: ${JSON.stringify(registerData)}`);
+      }
 
-      const uploadUrl = registerData.value.uploadMechanism["com.linkedin.ads.directUploadV2"].uploadUrl;
+      // LinkedIn API can return the URL in different properties depending on the account type or recipe
+      const uploadMechanism = registerData.value.uploadMechanism;
+      const uploadUrl =
+        uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl ||
+        uploadMechanism?.["com.linkedin.ads.directUploadV2"]?.uploadUrl;
+
+      if (!uploadUrl) {
+        throw new Error(`LinkedIn Media Register: uploadUrl no encontrado. Respuesta completa: ${JSON.stringify(registerData)}`);
+      }
+
       mediaAsset = registerData.value.asset;
 
       // Download image and upload to LinkedIn
