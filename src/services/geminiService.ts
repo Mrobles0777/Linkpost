@@ -32,7 +32,7 @@ export async function generateLinkedInContent(
     2. Un "Body" (cuerpo) con insights técnicos y estratégicos sobre el impacto de la IA en los centros de datos.
     3. Un "CTA" (llamada a la acción) profesional.
     4. Una lista de hashtags relevantes.
-    5. "imageKeywords": Dos o tres palabras clave en INGLÉS que describan una imagen profesional y técnica (ej: "server rack", "cooling system", "fiber optic"). Siempre enfocado en infraestructura tecnológica.
+    5. "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA. Debe describir una escena profesional, técnica y minimalista relacionada con el post (ej: "High-tech data center with glowing blue server racks, 4k, cinematic lighting, professional photography").
     
     Asegúrate de que el contenido refleje la experiencia del perfil del usuario y aporte valor real a la comunidad técnica de LinkedIn.
   `;
