@@ -37,35 +37,45 @@ export async function generateLinkedInContent(
     Asegúrate de que el contenido refleje la experiencia del perfil del usuario y aporte valor real a la comunidad técnica de LinkedIn.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          hook: { type: Type.STRING },
-          body: { type: Type.STRING },
-          cta: { type: Type.STRING },
-          hashtags: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          },
-          imageKeywords: { type: Type.STRING }
-        },
-        required: ["hook", "body", "cta", "hashtags", "imageKeywords"]
-      }
-    }
-  });
-
   try {
+    console.log("Calling Gemini with settings:", { model: "gemini-flash-lite-latest", topic, tone });
+    const response = await ai.models.generateContent({
+      model: "gemini-flash-lite-latest",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            hook: { type: Type.STRING },
+            body: { type: Type.STRING },
+            cta: { type: Type.STRING },
+            hashtags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            imageKeywords: { type: Type.STRING }
+          },
+          required: ["hook", "body", "cta", "hashtags", "imageKeywords"]
+        }
+      }
+    });
+
+    console.log("Gemini Raw Response:", response);
     const text = response.text;
-    if (!text) throw new Error("No content received from Gemini");
-    return JSON.parse(text) as LinkedInPost;
-  } catch (e) {
-    console.error("Error parsing Gemini response", e);
-    throw new Error("No se pudo generar el contenido estructurado.");
+    if (!text) {
+      console.error("Gemini response.text is empty. Full response:", response);
+      throw new Error("No content received from Gemini");
+    }
+
+    const parsed = JSON.parse(text);
+    console.log("Gemini Parsed Response:", parsed);
+    return parsed as LinkedInPost;
+  } catch (e: any) {
+    console.error("Detailed Gemini Service Error:", e);
+    // Log specifics if available
+    if (e.response) console.error("Gemini Error Response:", e.response);
+    throw new Error(`Error en el servicio de IA: ${e.message || "Error desconocido"}`);
   }
 }
 
