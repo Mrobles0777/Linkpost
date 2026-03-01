@@ -110,3 +110,27 @@ export async function summarizeCV(cvText: string): Promise<string> {
 
   return response.text || "";
 }
+
+export async function generateImagePromptFromScript(script: string): Promise<string> {
+  const prompt = `
+    Eres un experto en generación de prompts para IA de imagen (DALL-E, Midjourney, Pollinations).
+    Analiza el siguiente título o extracto de un post de LinkedIn y genera un prompt artístico, técnico y minimalista en INGLÉS.
+    
+    CONTENIDO DEL POST:
+    ${script}
+    
+    REGLAS:
+    - El prompt debe ser en INGLÉS.
+    - Debe describir una escena profesional de tecnología, centros de datos o infraestructura de IA.
+    - Estilo: Fotografía profesional, iluminación cinematográfica, 8k, ultra detallado, composición limpia.
+    - NO incluyas texto dentro de la imagen.
+    - Genera SOLO el texto del prompt, sin explicaciones.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+  });
+
+  return response.text || "Data center technology, professional photography, cinematic lighting";
+}

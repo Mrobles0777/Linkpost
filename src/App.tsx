@@ -23,7 +23,7 @@ import {
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateLinkedInContent, LinkedInPost, summarizeCV } from './services/geminiService';
+import { generateLinkedInContent, LinkedInPost, summarizeCV, generateImagePromptFromScript } from './services/geminiService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { supabase } from './lib/supabase';
@@ -402,7 +402,9 @@ export default function App() {
     if (!post || !post.imageKeywords) return;
     setIsGeneratingImage(true);
     try {
-      const proxyUrl = `/api/image/search?q=${encodeURIComponent(post.imageKeywords)}`;
+      // Refine the prompt using Gemini first
+      const refinedPrompt = await generateImagePromptFromScript(post.imageKeywords || post.topic);
+      const proxyUrl = `/api/image/search?q=${encodeURIComponent(refinedPrompt)}`;
       const imgRes = await fetch(proxyUrl);
       if (imgRes.ok) {
         const imgData = await imgRes.json();
