@@ -93,8 +93,6 @@ app.get("/auth/linkedin/callback", async (req, res) => {
 
     if (upsertError) {
       console.error("Supabase Upsert Error:", upsertError);
-      // Note: If columns don't exist, this will fail. 
-      // We'll proceed but the token won't be saved.
     }
 
     res.send(`
@@ -141,46 +139,30 @@ app.get("/auth/linkedin/callback", async (req, res) => {
   }
 });
 
-// API: Search Image (Proxy to avoid CORS and get static URL)
+// API: Search Image (Proxy to AI Image Generation)
 app.get("/api/image/search", async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: "Query required" });
 
   try {
-    const qStr = (q as string) || "data center technology";
-    const cleanKeywords = qStr
-      .replace(/[,]/g, ' ')
-      .trim()
-      .split(/\s+/)
-      .slice(0, 3)
-      .join(',');
+    const rawPrompt = (q as string) || "professional data center technology";
 
-    // Using LoremFlickr for better stability (keywords based random image)
-    const imageUrl = `https://loremflickr.com/1200/627/${encodeURIComponent(cleanKeywords)}`;
-    console.log(`[ImageSearch] Keywords: ${cleanKeywords}`);
-    console.log(`[ImageSearch] Attempting LoremFlickr: ${imageUrl}`);
+    // Optimize prompt for AI generation
+    const cleanPrompt = rawPrompt.replace(/["']/g, '').trim();
+    const finalPrompt = `${cleanPrompt}, cinematic lighting, high-end professional photography, 4k, tech-centric, hyper-realistic, bokeh background`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    // Generated image URL (using seed for variety)
+    const seed = Math.floor(Math.random() * 1000000);
+    const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1200&height=627&nologo=true&seed=${seed}`;
 
-    try {
-      const imgRes = await fetch(imageUrl, { signal: controller.signal });
-      clearTimeout(timeout);
+    console.log(`[ImageAI] Prompt: ${finalPrompt}`);
+    console.log(`[ImageAI] URL: ${generatedImageUrl}`);
 
-      if (imgRes.ok) {
-        console.log(`[ImageSearch] Success! Resolved: ${imgRes.url}`);
-        res.json({ url: imgRes.url });
-      } else {
-        console.error(`[ImageSearch] LoremFlickr error: ${imgRes.status}`);
-        res.status(500).json({ error: `Image source error: ${imgRes.status}` });
-      }
-    } catch (fErr: any) {
-      clearTimeout(timeout);
-      console.error(`[ImageSearch] Fetch error: ${fErr.message}`);
-      res.status(500).json({ error: "Image fetch failed or timed out" });
-    }
+    // Return the URL for direct frontend use
+    res.json({ url: generatedImageUrl });
+
   } catch (err: any) {
-    console.error(`[ImageSearch] Error: ${err.message}`);
+    console.error(`[ImageAI] Error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
@@ -211,11 +193,8 @@ app.post("/api/linkedin/post", async (req, res) => {
     .single();
 
   if (error || !data?.linkedin_token || !data?.linkedin_urn) {
-    console.error("LinkedIn Post - Auth check failed:", { error, userId, hasData: !!data, hasToken: !!data?.linkedin_token, hasUrn: !!data?.linkedin_urn });
     return res.status(401).json({
-      error: "Not connected to LinkedIn or profile not found",
-      details: error,
-      lookupId: userId
+      error: "Not connected to LinkedIn or profile not found"
     });
   }
 
@@ -253,11 +232,11 @@ app.post("/api/linkedin/post", async (req, res) => {
       mediaAsset = registerData.value.asset;
 
       // Download image and upload to LinkedIn
-      console.log("Downloading image from Unsplash:", imageUrl);
+      console.log("Downloading AI image:", imageUrl);
       const imageRes = await fetch(imageUrl);
       const imageBuffer = await imageRes.arrayBuffer();
 
-      console.log("Uploading image to LinkedIn...");
+      console.log("Uploading to LinkedIn...");
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
         headers: {
@@ -268,10 +247,9 @@ app.post("/api/linkedin/post", async (req, res) => {
       });
 
       if (!uploadRes.ok) throw new Error("LinkedIn Image Upload failed");
-      console.log("Image uploaded successfully:", mediaAsset);
     }
 
-    // Create the Post (with or without media)
+    // Create the Post
     const specificContent: any = {
       "com.linkedin.ugc.ShareContent": {
         shareCommentary: { text },
@@ -306,12 +284,9 @@ app.post("/api/linkedin/post", async (req, res) => {
     if (postResponse.ok) {
       res.json({ success: true, data: postData });
     } else {
-      console.error("LinkedIn Post API Failure:", postData);
-      const errorMessage = postData.message || postData.error_description || JSON.stringify(postData);
-      res.status(postResponse.status).json({ success: false, error: { message: errorMessage, details: postData } });
+      res.status(postResponse.status).json({ success: false, error: postData });
     }
   } catch (err: any) {
-    console.error("LinkedIn Post flow Error:", err);
     res.status(500).json({ success: false, error: { message: err.message } });
   }
 });
@@ -319,7 +294,7 @@ app.post("/api/linkedin/post", async (req, res) => {
 // Export for Vercel
 export default app;
 
-// Vite middleware for development
+// Lite middleware for development
 if (process.env.NODE_ENV !== "production") {
   const startLocal = async () => {
     const { createServer: createViteServer } = await import("vite");
