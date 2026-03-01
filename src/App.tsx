@@ -743,9 +743,17 @@ export default function App() {
                 <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-600">Tu Perfil Profesional</h2>
               </div>
               {isConnected ? (
-                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-bold flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Vinculado
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-bold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Vinculado
+                  </span>
+                  <button
+                    onClick={() => handleConnect(false)}
+                    className="text-[10px] text-gray-400 hover:text-[#0A66C2] font-bold"
+                  >
+                    Re-vincular
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => handleConnect(false)}
