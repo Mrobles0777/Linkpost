@@ -40,7 +40,7 @@ export async function generateLinkedInContent(
   try {
     console.log("Calling Gemini (Banana mode) for topic:", topic);
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -96,7 +96,7 @@ export async function summarizeCV(cvText: string): Promise<string> {
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash",
+    model: "gemini-3-flash-preview",
     contents: prompt,
   });
 
