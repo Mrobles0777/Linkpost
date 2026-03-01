@@ -65,7 +65,10 @@ app.get("/auth/linkedin/callback", async (req, res) => {
     });
 
     const tokenData = await tokenResponse.json();
-    if (tokenData.error) throw new Error(tokenData.error_description);
+    if (tokenData.error) {
+      console.error("LinkedIn Token Exchange Error:", tokenData);
+      throw new Error(`LinkedIn Error: ${tokenData.error_description || tokenData.error}`);
+    }
 
     const accessToken = tokenData.access_token;
 
