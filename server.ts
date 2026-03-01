@@ -155,9 +155,10 @@ app.get("/api/image/search", async (req, res) => {
       .slice(0, 3)
       .join(',');
 
-    const imageUrl = `https://source.unsplash.com/featured/1200x627/?${encodeURIComponent(cleanKeywords)}`;
+    // Using LoremFlickr for better stability (keywords based random image)
+    const imageUrl = `https://loremflickr.com/1200/627/${encodeURIComponent(cleanKeywords)}`;
     console.log(`[ImageSearch] Keywords: ${cleanKeywords}`);
-    console.log(`[ImageSearch] URL: ${imageUrl}`);
+    console.log(`[ImageSearch] Attempting LoremFlickr: ${imageUrl}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -170,13 +171,13 @@ app.get("/api/image/search", async (req, res) => {
         console.log(`[ImageSearch] Success! Resolved: ${imgRes.url}`);
         res.json({ url: imgRes.url });
       } else {
-        console.error(`[ImageSearch] Unsplash error: ${imgRes.status}`);
-        res.status(500).json({ error: `Unsplash error: ${imgRes.status}` });
+        console.error(`[ImageSearch] LoremFlickr error: ${imgRes.status}`);
+        res.status(500).json({ error: `Image source error: ${imgRes.status}` });
       }
     } catch (fErr: any) {
       clearTimeout(timeout);
       console.error(`[ImageSearch] Fetch error: ${fErr.message}`);
-      res.status(500).json({ error: "Image fetch timeout or network error" });
+      res.status(500).json({ error: "Image fetch failed or timed out" });
     }
   } catch (err: any) {
     console.error(`[ImageSearch] Error: ${err.message}`);

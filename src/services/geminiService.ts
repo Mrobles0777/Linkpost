@@ -38,9 +38,9 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini (Flash Lite mode) for topic:", topic);
+    console.log("Calling Nano Banana (Gemini 1.5 Flash 8B) for topic:", topic);
     const response = await ai.models.generateContent({
-      model: "gemini-flash-lite-latest",
+      model: "gemini-1.5-flash-8b",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
