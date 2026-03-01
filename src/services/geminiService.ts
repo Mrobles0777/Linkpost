@@ -7,6 +7,7 @@ export interface LinkedInPost {
   body: string;
   cta: string;
   hashtags: string[];
+  imageKeywords: string; // Keywords for Unsplash search
 }
 
 export async function generateLinkedInContent(
@@ -31,12 +32,13 @@ export async function generateLinkedInContent(
     2. Un "Body" (cuerpo) con insights técnicos y estratégicos sobre el impacto de la IA en los centros de datos.
     3. Un "CTA" (llamada a la acción) profesional.
     4. Una lista de hashtags relevantes.
+    5. "imageKeywords": Una cadena de 3-5 palabras clave en INGLÉS que describan una imagen profesional y minimalista adecuada para este post (ej: "data center futuristic", "artificial intelligence chip", "server room professional").
     
     Asegúrate de que el contenido refleje la experiencia del perfil del usuario y aporte valor real a la comunidad técnica de LinkedIn.
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-flash-lite-latest",
+    model: "gemini-1.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -49,15 +51,18 @@ export async function generateLinkedInContent(
           hashtags: {
             type: Type.ARRAY,
             items: { type: Type.STRING }
-          }
+          },
+          imageKeywords: { type: Type.STRING }
         },
-        required: ["hook", "body", "cta", "hashtags"]
+        required: ["hook", "body", "cta", "hashtags", "imageKeywords"]
       }
     }
   });
 
   try {
-    return JSON.parse(response.text || "{}") as LinkedInPost;
+    const text = response.text;
+    if (!text) throw new Error("No content received from Gemini");
+    return JSON.parse(text) as LinkedInPost;
   } catch (e) {
     console.error("Error parsing Gemini response", e);
     throw new Error("No se pudo generar el contenido estructurado.");

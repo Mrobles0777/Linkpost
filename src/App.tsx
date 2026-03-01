@@ -44,6 +44,7 @@ export default function App() {
   const [tone, setTone] = useState('Profesional y Técnico');
   const [isGenerating, setIsGenerating] = useState(false);
   const [post, setPost] = useState<LinkedInPost | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
@@ -364,7 +365,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: fullText,
-          userId: user.id
+          userId: user.id,
+          imageUrl: selectedImage
         }),
       });
       const data = await res.json();
@@ -383,9 +385,28 @@ export default function App() {
   const handleGenerate = async () => {
     if (!topic) return;
     setIsGenerating(true);
+    setSelectedImage(null);
     try {
       const result = await generateLinkedInContent(profile || 'Experto en Infraestructura de Datos e IA', topic, tone);
       setPost(result);
+
+      // Fetch a relevant image from Unsplash (Source API)
+      if (result.imageKeywords) {
+        const keywords = encodeURIComponent(result.imageKeywords.replace(/\s+/g, ','));
+        const imageUrl = `https://source.unsplash.com/featured/1200x627/?${keywords}`;
+
+        // We follow the redirect to get a static URL for the backend later
+        try {
+          const imgRes = await fetch(imageUrl);
+          if (imgRes.ok) {
+            setSelectedImage(imgRes.url);
+          }
+        } catch (e) {
+          console.error("Error fetching Unsplash image:", e);
+          // Fallback to a direct link if fetch fails (CORS etc)
+          setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
+        }
+      }
     } catch (error) {
       console.error(error);
       alert('Error al generar el contenido. Por favor, inténtalo de nuevo.');
@@ -932,7 +953,25 @@ export default function App() {
                       <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">Ahora • <Database className="w-2.5 h-2.5" /></p>
                     </div>
                   </div>
-                  <div className="px-4 pb-4 space-y-4 text-sm text-gray-800">
+
+                  {selectedImage && (
+                    <div className="relative group aspect-video overflow-hidden border-y border-gray-100 bg-gray-50">
+                      <img
+                        src={selectedImage}
+                        alt="Post visual"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => setSelectedImage(null)}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        title="Quitar imagen"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="px-4 pb-4 space-y-4 text-sm text-gray-800 pt-4">
                     <p className="font-bold">{post.hook}</p>
                     <p className="whitespace-pre-wrap">{post.body}</p>
                     <p className="font-medium text-[#0A66C2]">{post.cta}</p>

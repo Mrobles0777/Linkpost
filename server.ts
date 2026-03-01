@@ -157,7 +157,7 @@ app.get("/api/auth/linkedin/status", async (req, res) => {
 
 // API: Post to LinkedIn
 app.post("/api/linkedin/post", async (req, res) => {
-  const { text, userId } = req.body;
+  const { text, userId, imageUrl } = req.body;
   if (!userId) return res.status(401).json({ error: "User ID required" });
 
   const { data, error } = await supabase
@@ -167,16 +167,82 @@ app.post("/api/linkedin/post", async (req, res) => {
     .single();
 
   if (error || !data?.linkedin_token || !data?.linkedin_urn) {
-    console.error("LinkedIn Post - Auth check failed:", { error, hasData: !!data, hasToken: !!data?.linkedin_token, hasUrn: !!data?.linkedin_urn });
+    console.error("LinkedIn Post - Auth check failed:", { error, userId, hasData: !!data, hasToken: !!data?.linkedin_token, hasUrn: !!data?.linkedin_urn });
     return res.status(401).json({
       error: "Not connected to LinkedIn or profile not found",
-      details: error
+      details: error,
+      lookupId: userId
     });
   }
 
   if (!text) return res.status(400).json({ error: "No text provided" });
 
   try {
+    let mediaAsset = null;
+
+    // Handle Image Upload if imageUrl is provided
+    if (imageUrl) {
+      console.log("Registering image upload to LinkedIn...");
+      const registerRes = await fetch("https://api.linkedin.com/v2/assets?action=registerUpload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.linkedin_token}`,
+          "Content-Type": "application/json",
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+        body: JSON.stringify({
+          registerUploadRequest: {
+            recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+            owner: data.linkedin_urn,
+            serviceRelationships: [{
+              relationshipType: "OWNER",
+              identifier: "urn:li:userGeneratedContent"
+            }]
+          }
+        })
+      });
+
+      const registerData = await registerRes.json();
+      if (!registerRes.ok) throw new Error(`LinkedIn Media Register Error: ${JSON.stringify(registerData)}`);
+
+      const uploadUrl = registerData.value.uploadMechanism["com.linkedin.ads.directUploadV2"].uploadUrl;
+      mediaAsset = registerData.value.asset;
+
+      // Download image and upload to LinkedIn
+      console.log("Downloading image from Unsplash:", imageUrl);
+      const imageRes = await fetch(imageUrl);
+      const imageBuffer = await imageRes.arrayBuffer();
+
+      console.log("Uploading image to LinkedIn...");
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${data.linkedin_token}`,
+          "Content-Type": "image/jpeg"
+        },
+        body: imageBuffer
+      });
+
+      if (!uploadRes.ok) throw new Error("LinkedIn Image Upload failed");
+      console.log("Image uploaded successfully:", mediaAsset);
+    }
+
+    // Create the Post (with or without media)
+    const specificContent: any = {
+      "com.linkedin.ugc.ShareContent": {
+        shareCommentary: { text },
+        shareMediaCategory: mediaAsset ? "IMAGE" : "NONE",
+      }
+    };
+
+    if (mediaAsset) {
+      specificContent["com.linkedin.ugc.ShareContent"].media = [{
+        status: "READY",
+        description: { text: "Post image" },
+        media: mediaAsset
+      }];
+    }
+
     const postResponse = await fetch("https://api.linkedin.com/v2/ugcPosts", {
       method: "POST",
       headers: {
@@ -187,12 +253,7 @@ app.post("/api/linkedin/post", async (req, res) => {
       body: JSON.stringify({
         author: data.linkedin_urn,
         lifecycleState: "PUBLISHED",
-        specificContent: {
-          "com.linkedin.ugc.ShareContent": {
-            shareCommentary: { text },
-            shareMediaCategory: "NONE",
-          },
-        },
+        specificContent,
         visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
       }),
     });
@@ -205,9 +266,9 @@ app.post("/api/linkedin/post", async (req, res) => {
       const errorMessage = postData.message || postData.error_description || JSON.stringify(postData);
       res.status(postResponse.status).json({ success: false, error: { message: errorMessage, details: postData } });
     }
-  } catch (error: any) {
-    console.error("LinkedIn Post Error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    console.error("LinkedIn Post flow Error:", err);
+    res.status(500).json({ success: false, error: { message: err.message } });
   }
 });
 
