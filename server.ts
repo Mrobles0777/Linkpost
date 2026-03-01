@@ -152,8 +152,8 @@ app.get("/api/image/search", async (req, res) => {
     const finalPrompt = `${cleanPrompt}, professional data center technology photography, cinematic lighting, 4k, highly detailed`;
 
     const seed = Math.floor(Math.random() * 1000000);
-    // Using the newer /p/ format for Pollinations which is often more robust
-    const generatedImageUrl = `https://pollinations.ai/p/${encodeURIComponent(finalPrompt)}?width=1200&height=627&seed=${seed}&model=flux`;
+    // CRITICAL: Must use image.pollinations.ai/prompt/ for direct image links
+    const generatedImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1200&height=627&nologo=true&seed=${seed}`;
 
     console.log(`[ImageAI] Prompt: ${finalPrompt}`);
     console.log(`[ImageAI] URL: ${generatedImageUrl}`);
