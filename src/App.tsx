@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Send, 
-  Layout, 
-  User, 
-  Cpu, 
-  Sparkles, 
-  Copy, 
-  RefreshCw, 
-  Check, 
+import {
+  Send,
+  Layout,
+  User,
+  Cpu,
+  Sparkles,
+  Copy,
+  RefreshCw,
+  Check,
   FileText,
   ChevronRight,
   Database,
@@ -49,7 +49,7 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  
+
   // App Auth State (Supabase)
   const [user, setUser] = useState<any>(null);
   const [isLinkedInUser, setIsLinkedInUser] = useState(false);
@@ -107,7 +107,7 @@ export default function App() {
         .select('cv_content')
         .eq('id', user.id)
         .single();
-      
+
       if (error) {
         if (error.code !== 'PGRST116') { // PGRST116 is "no rows found"
           console.error('Error fetching profile:', error);
@@ -128,12 +128,12 @@ export default function App() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .upsert({ 
-          id: user.id, 
+        .upsert({
+          id: user.id,
           cv_content: content,
           updated_at: new Date().toISOString()
         });
-      
+
       if (error) throw error;
     } catch (e) {
       console.error('Error saving profile to Supabase:', e);
@@ -162,8 +162,9 @@ export default function App() {
   }, []);
 
   const checkConnection = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/auth/linkedin/status');
+      const res = await fetch(`/api/auth/linkedin/status?userId=${user.id}`);
       const data = await res.json();
       setIsConnected(data.connected);
     } catch (e) {
@@ -223,7 +224,7 @@ export default function App() {
 
   const handleSummarizeCV = async () => {
     if (!profile.trim()) return;
-    
+
     setIsSummarizing(true);
     try {
       const summary = await summarizeCV(profile);
@@ -244,7 +245,7 @@ export default function App() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    
+
     // Password Policy Check
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(loginPassword)) {
@@ -309,7 +310,7 @@ export default function App() {
       if (user) {
         await saveProfileToSupabase(profile);
       }
-      
+
       setSettingsMessage({ type: 'success', text: 'Perfil actualizado con éxito' });
       setNewPassword('');
       setConfirmPassword('');
@@ -323,7 +324,8 @@ export default function App() {
 
   const handleConnect = async (isLogin = false) => {
     try {
-      const res = await fetch(`/api/auth/linkedin/url?login=${isLogin}`);
+      const userIdParam = user ? `&userId=${user.id}` : '';
+      const res = await fetch(`/api/auth/linkedin/url?login=${isLogin}${userIdParam}`);
       const { url } = await res.json();
       window.open(url, 'linkedin_oauth', 'width=600,height=600');
     } catch (e) {
@@ -335,12 +337,15 @@ export default function App() {
     if (!post) return;
     setIsPosting(true);
     const fullText = `${post.hook}\n\n${post.body}\n\n${post.cta}\n\n${post.hashtags.join(' ')}`;
-    
+
     try {
       const res = await fetch('/api/linkedin/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: fullText }),
+        body: JSON.stringify({
+          text: fullText,
+          userId: user.id
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -404,7 +409,7 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F4F2EE] flex flex-col items-center justify-center p-4">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden"
@@ -418,14 +423,14 @@ export default function App() {
               {authMode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta gratuita'}
             </p>
           </div>
-          
+
           <form onSubmit={handleAuth} className="p-8 space-y-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Correo Electrónico</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input 
+                  <input
                     type="email"
                     required
                     value={loginEmail}
@@ -440,7 +445,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Contraseña</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input 
+                  <input
                     type={showPassword ? "text" : "password"}
                     required
                     value={loginPassword}
@@ -448,7 +453,7 @@ export default function App() {
                     className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none"
                     placeholder="••••••••"
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
@@ -465,7 +470,7 @@ export default function App() {
               </p>
             )}
 
-            <button 
+            <button
               type="submit"
               disabled={isAuthLoading}
               className="w-full py-4 bg-[#0A66C2] text-white rounded-xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0A66C2]/20 active:scale-[0.98]"
@@ -478,7 +483,7 @@ export default function App() {
             </button>
 
             <div className="text-center">
-              <button 
+              <button
                 type="button"
                 onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
                 className="text-xs text-[#0A66C2] font-bold hover:underline"
@@ -496,7 +501,7 @@ export default function App() {
               </div>
             </div>
 
-            <button 
+            <button
               type="button"
               onClick={() => handleConnect(true)}
               className="w-full py-3 border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
@@ -532,14 +537,14 @@ export default function App() {
               </span>
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-4">
-              <button 
+              <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="p-2 text-gray-400 hover:text-[#0A66C2] transition-colors"
                 title="Configuración de Perfil"
               >
                 <Settings className="w-5 h-5" />
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                 title="Cerrar Sesión"
@@ -555,14 +560,14 @@ export default function App() {
       <AnimatePresence>
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsSettingsOpen(false)}
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -573,7 +578,7 @@ export default function App() {
                   <Settings className="w-6 h-6" />
                   <h2 className="text-xl font-bold">Configuración de Perfil</h2>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsSettingsOpen(false)}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"
                 >
@@ -590,14 +595,14 @@ export default function App() {
                       <h3 className="font-bold uppercase text-xs tracking-widest">Tu CV Profesional</h3>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input 
+                      <input
                         type="file"
                         ref={fileInputRef}
                         onChange={handleImportCV}
                         accept=".pdf,.docx"
                         className="hidden"
                       />
-                      <button 
+                      <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isImporting}
@@ -610,7 +615,7 @@ export default function App() {
                         )}
                         Importar PDF/Word
                       </button>
-                      <button 
+                      <button
                         type="button"
                         onClick={handleSummarizeCV}
                         disabled={isSummarizing || !profile.trim()}
@@ -634,7 +639,7 @@ export default function App() {
                         </div>
                       </div>
                     )}
-                    <textarea 
+                    <textarea
                       value={profile}
                       onChange={(e) => setProfile(e.target.value)}
                       placeholder="Actualiza tu resumen profesional aquí..."
@@ -655,7 +660,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">Nueva Contraseña</label>
-                      <input 
+                      <input
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -665,7 +670,7 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">Confirmar</label>
-                      <input 
+                      <input
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
@@ -686,14 +691,14 @@ export default function App() {
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsSettingsOpen(false)}
                     className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-all"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     disabled={isUpdatingProfile}
                     className="flex-1 py-3 bg-[#0A66C2] text-white rounded-xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#0A66C2]/20"
@@ -708,7 +713,7 @@ export default function App() {
       </AnimatePresence>
 
       <main className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
+
         {/* Left Column: Inputs */}
         <div className="lg:col-span-5 space-y-6">
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -722,7 +727,7 @@ export default function App() {
                   <Check className="w-3 h-3" /> Vinculado
                 </span>
               ) : (
-                <button 
+                <button
                   onClick={() => handleConnect(false)}
                   className="text-[10px] bg-[#0A66C2] text-white px-2 py-1 rounded font-bold hover:bg-[#004182] transition-colors flex items-center gap-1"
                 >
@@ -734,7 +739,7 @@ export default function App() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-bold text-gray-500 uppercase">Resumen de CV / Bio</label>
-                  <button 
+                  <button
                     onClick={handleSummarizeCV}
                     disabled={isSummarizing || !profile.trim()}
                     className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#0A66C2] hover:text-[#004182] disabled:opacity-50 transition-colors"
@@ -753,7 +758,7 @@ export default function App() {
                       <RefreshCw className="w-4 h-4 text-[#0A66C2] animate-spin" />
                     </div>
                   )}
-                  <textarea 
+                  <textarea
                     value={profile}
                     onChange={(e) => setProfile(e.target.value)}
                     placeholder="Pega aquí tu experiencia relevante en centros de datos e IA..."
@@ -773,7 +778,7 @@ export default function App() {
             <div className="p-5 space-y-5">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Tema o Idea Central</label>
-                <input 
+                <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
@@ -782,7 +787,7 @@ export default function App() {
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
                   {exampleTopics.map((t, idx) => (
-                    <button 
+                    <button
                       key={idx}
                       onClick={() => setTopic(t)}
                       className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded transition-colors"
@@ -795,7 +800,7 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Tono de Voz</label>
-                <select 
+                <select
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none appearance-none cursor-pointer"
@@ -808,19 +813,19 @@ export default function App() {
               </div>
 
               <div className="flex gap-3">
-                <button 
+                <button
                   onClick={handleClear}
                   className="px-4 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold text-sm hover:bg-gray-200 transition-all"
                 >
                   Limpiar
                 </button>
-                <button 
+                <button
                   onClick={handleGenerate}
                   disabled={isGenerating || !topic}
                   className={cn(
                     "flex-1 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all",
-                    isGenerating || !topic 
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                    isGenerating || !topic
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                       : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-lg shadow-[#0A66C2]/20 active:scale-[0.98]"
                   )}
                 >
@@ -847,7 +852,7 @@ export default function App() {
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Resultado</h2>
             {post && (
               <div className="flex bg-gray-200 p-1 rounded-lg">
-                <button 
+                <button
                   onClick={() => setViewMode('blocks')}
                   className={cn(
                     "px-3 py-1 text-xs font-bold rounded-md transition-all",
@@ -856,7 +861,7 @@ export default function App() {
                 >
                   Bloques
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode('preview')}
                   className={cn(
                     "px-3 py-1 text-xs font-bold rounded-md transition-all",
@@ -871,7 +876,7 @@ export default function App() {
 
           <AnimatePresence mode="wait">
             {!post && !isGenerating ? (
-              <motion.div 
+              <motion.div
                 key="empty"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -900,7 +905,7 @@ export default function App() {
                 ))}
               </motion.div>
             ) : viewMode === 'blocks' ? (
-              <motion.div 
+              <motion.div
                 key="blocks"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -908,18 +913,18 @@ export default function App() {
                 className="space-y-6"
               >
                 {/* Block: Hook */}
-                <PostBlock 
-                  title="Hook (Gancho)" 
-                  content={post.hook} 
+                <PostBlock
+                  title="Hook (Gancho)"
+                  content={post.hook}
                   onCopy={() => copyToClipboard(post.hook, 'hook')}
                   isCopied={copiedSection === 'hook'}
                   icon={<Zap className="w-4 h-4 text-amber-500" />}
                 />
 
                 {/* Block: Body */}
-                <PostBlock 
-                  title="Cuerpo del Post" 
-                  content={post.body} 
+                <PostBlock
+                  title="Cuerpo del Post"
+                  content={post.body}
                   onCopy={() => copyToClipboard(post.body, 'body')}
                   isCopied={copiedSection === 'body'}
                   icon={<FileText className="w-4 h-4 text-blue-500" />}
@@ -927,9 +932,9 @@ export default function App() {
                 />
 
                 {/* Block: CTA */}
-                <PostBlock 
-                  title="Call to Action" 
-                  content={post.cta} 
+                <PostBlock
+                  title="Call to Action"
+                  content={post.cta}
                   onCopy={() => copyToClipboard(post.cta, 'cta')}
                   isCopied={copiedSection === 'cta'}
                   icon={<ChevronRight className="w-4 h-4 text-emerald-500" />}
@@ -941,7 +946,7 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-gray-500 uppercase tracking-tight">Hashtags</span>
                     </div>
-                    <button 
+                    <button
                       onClick={() => copyToClipboard(post.hashtags.join(' '), 'tags')}
                       className="text-gray-400 hover:text-[#0A66C2] transition-colors"
                     >
@@ -957,7 +962,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <button 
+                <button
                   onClick={copyFullPost}
                   className="w-full py-4 bg-white border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-2"
                 >
@@ -976,13 +981,13 @@ export default function App() {
                       </p>
                     </div>
                   ) : (
-                    <button 
+                    <button
                       onClick={handlePostToLinkedIn}
                       disabled={isPosting}
                       className={cn(
                         "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
-                        isPosting 
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
+                        isPosting
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                           : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20"
                       )}
                     >
@@ -996,7 +1001,7 @@ export default function App() {
                 </div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="preview"
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1059,7 +1064,7 @@ function PostBlock({ title, content, onCopy, isCopied, icon, isLarge }: PostBloc
           {icon}
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-tight">{title}</h3>
         </div>
-        <button 
+        <button
           onClick={onCopy}
           className="text-gray-400 hover:text-[#0A66C2] transition-colors p-1 rounded-md hover:bg-gray-100"
         >

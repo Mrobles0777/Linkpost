@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -11,19 +12,27 @@ async function startServer() {
 
   app.use(express.json());
 
-  // In-memory store for tokens (for demo purposes, in a real app use a database or secure session)
-  let linkedinToken: string | null = null;
-  let linkedinUserUrn: string | null = null;
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL || "",
+    process.env.VITE_SUPABASE_ANON_KEY || ""
+  );
 
   // API: Get Auth URL
   app.get("/api/auth/linkedin/url", (req, res) => {
     const isLogin = req.query.login === 'true';
+    const userId = req.query.userId as string;
     const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
+
+    const state = JSON.stringify({
+      mode: isLogin ? "login" : "connect",
+      userId: userId || null
+    });
+
     const params = new URLSearchParams({
       response_type: "code",
       client_id: process.env.LINKEDIN_CLIENT_ID || "",
       redirect_uri: redirectUri,
-      state: isLogin ? "login" : "connect",
+      state: state,
       scope: "w_member_social profile openid email",
     });
     const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
@@ -32,11 +41,18 @@ async function startServer() {
 
   // Callback: Handle LinkedIn redirect
   app.get("/auth/linkedin/callback", async (req, res) => {
-    const { code, state } = req.query;
+    const { code, state: stateJson } = req.query;
     if (!code) return res.status(400).send("No code provided");
 
+    let state: any = {};
+    try {
+      state = JSON.parse(stateJson as string);
+    } catch (e) {
+      state = { mode: stateJson }; // Fallback for old state format
+    }
+
     const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
-    
+
     try {
       // Exchange code for token
       const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
@@ -54,17 +70,32 @@ async function startServer() {
       const tokenData = await tokenResponse.json();
       if (tokenData.error) throw new Error(tokenData.error_description);
 
-      linkedinToken = tokenData.access_token;
+      const accessToken = tokenData.access_token;
 
       // Get User info
       const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: { Authorization: `Bearer ${linkedinToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       const userData = await userResponse.json();
-      linkedinUserUrn = `urn:li:person:${userData.sub}`;
+      const userUrn = `urn:li:person:${userData.sub}`;
 
-      // If it was a login, we could potentially create a session here
-      // For now, we'll just notify the frontend
+      // Save to Supabase if we have a userId
+      const effectiveUserId = state.userId || userData.sub;
+
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: effectiveUserId,
+          linkedin_token: accessToken,
+          linkedin_urn: userUrn,
+          updated_at: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        console.error("Supabase Upsert Error:", upsertError);
+        // Note: If columns don't exist, this will fail. 
+        // We'll proceed but the token won't be saved.
+      }
 
       res.send(`
         <html>
@@ -85,8 +116,9 @@ async function startServer() {
                 if (window.opener) {
                   window.opener.postMessage({ 
                     type: 'LINKEDIN_AUTH_SUCCESS', 
-                    isLogin: ${state === 'login'},
-                    user: ${JSON.stringify(userData)}
+                    isLogin: ${state.mode === 'login'},
+                    user: ${JSON.stringify(userData)},
+                    userId: ${JSON.stringify(effectiveUserId)}
                   }, '*');
                   setTimeout(() => window.close(), 500);
                 } else {
@@ -110,29 +142,46 @@ async function startServer() {
   });
 
   // API: Check if connected
-  app.get("/api/auth/linkedin/status", (req, res) => {
-    res.json({ connected: !!linkedinToken });
+  app.get("/api/auth/linkedin/status", async (req, res) => {
+    const userId = req.query.userId as string;
+    if (!userId) return res.json({ connected: false });
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('linkedin_token')
+      .eq('id', userId)
+      .single();
+
+    res.json({ connected: !!(data?.linkedin_token) && !error });
   });
 
   // API: Post to LinkedIn
   app.post("/api/linkedin/post", async (req, res) => {
-    if (!linkedinToken || !linkedinUserUrn) {
-      return res.status(401).json({ error: "Not connected to LinkedIn" });
+    const { text, userId } = req.body;
+    if (!userId) return res.status(401).json({ error: "User ID required" });
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('linkedin_token, linkedin_urn')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data?.linkedin_token || !data?.linkedin_urn) {
+      return res.status(401).json({ error: "Not connected to LinkedIn or profile not found" });
     }
 
-    const { text } = req.body;
     if (!text) return res.status(400).json({ error: "No text provided" });
 
     try {
       const postResponse = await fetch("https://api.linkedin.com/v2/ugcPosts", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${linkedinToken}`,
+          Authorization: `Bearer ${data.linkedin_token}`,
           "Content-Type": "application/json",
           "X-Restli-Protocol-Version": "2.0.0",
         },
         body: JSON.stringify({
-          author: linkedinUserUrn,
+          author: data.linkedin_urn,
           lifecycleState: "PUBLISHED",
           specificContent: {
             "com.linkedin.ugc.ShareContent": {
