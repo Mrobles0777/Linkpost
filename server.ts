@@ -167,7 +167,11 @@ app.post("/api/linkedin/post", async (req, res) => {
     .single();
 
   if (error || !data?.linkedin_token || !data?.linkedin_urn) {
-    return res.status(401).json({ error: "Not connected to LinkedIn or profile not found" });
+    console.error("LinkedIn Post - Auth check failed:", { error, hasData: !!data, hasToken: !!data?.linkedin_token, hasUrn: !!data?.linkedin_urn });
+    return res.status(401).json({
+      error: "Not connected to LinkedIn or profile not found",
+      details: error
+    });
   }
 
   if (!text) return res.status(400).json({ error: "No text provided" });
