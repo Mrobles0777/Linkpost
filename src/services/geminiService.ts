@@ -32,7 +32,12 @@ export async function generateLinkedInContent(
     2. Un "Body" (cuerpo) con insights técnicos y estratégicos. Usa ENUMERACIONES o BULLET POINTS claros. 
     3. Un "CTA" (llamada a la acción) profesional.
     4. Una lista de hashtags relevantes.
-    5. "imageKeywords": Una descripción artística detallada en INGLÉS.
+    5. "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA. 
+       REGLAS PARA LA IMAGEN:
+       - Debe ser una escena profesional, técnica y minimalista relacionada con el tema del post.
+       - Incluye términos como: "high-tech", "cinematic lighting", "4k", "professional photography", "minimalist", "clean composition".
+       - Evita texto dentro de la imagen.
+       - Ejemplo: "Futuristic data center corridor with glowing server racks, isometric view, soft blue and white lighting, hyper-realistic, 8k".
 
     REGLAS DE FORMATO CRÍTICAS:
     - Deja UN SALTO DE LÍNEA DOBLE entre cada párrafo y entre cada punto de la lista en el "Body".
