@@ -407,9 +407,9 @@ export default function App() {
           setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Error al generar el contenido. Por favor, inténtalo de nuevo.');
+      alert(`Error al generar el contenido: ${error.message || 'Por favor, inténtalo de nuevo.'}`);
     } finally {
       setIsGenerating(false);
     }
