@@ -1,3 +1,0 @@
-Supabase URL: https://sqibyxmjezoxinoqtyjk.supabase.co
-Auth Session: OK
-Profiles Table: OK

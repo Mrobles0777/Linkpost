@@ -6,98 +6,95 @@ import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+app.use(express.json());
 
-  app.use(express.json());
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || "",
+  process.env.VITE_SUPABASE_ANON_KEY || ""
+);
 
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL || "",
-    process.env.VITE_SUPABASE_ANON_KEY || ""
-  );
+// API: Get Auth URL
+app.get("/api/auth/linkedin/url", (req, res) => {
+  const isLogin = req.query.login === 'true';
+  const userId = req.query.userId as string;
+  const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
 
-  // API: Get Auth URL
-  app.get("/api/auth/linkedin/url", (req, res) => {
-    const isLogin = req.query.login === 'true';
-    const userId = req.query.userId as string;
-    const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
-
-    const state = JSON.stringify({
-      mode: isLogin ? "login" : "connect",
-      userId: userId || null
-    });
-
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: process.env.LINKEDIN_CLIENT_ID || "",
-      redirect_uri: redirectUri,
-      state: state,
-      scope: "w_member_social profile openid email",
-    });
-    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
-    res.json({ url: authUrl });
+  const state = JSON.stringify({
+    mode: isLogin ? "login" : "connect",
+    userId: userId || null
   });
 
-  // Callback: Handle LinkedIn redirect
-  app.get("/auth/linkedin/callback", async (req, res) => {
-    const { code, state: stateJson } = req.query;
-    if (!code) return res.status(400).send("No code provided");
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: process.env.LINKEDIN_CLIENT_ID || "",
+    redirect_uri: redirectUri,
+    state: state,
+    scope: "w_member_social profile openid email",
+  });
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+  res.json({ url: authUrl });
+});
 
-    let state: any = {};
-    try {
-      state = JSON.parse(stateJson as string);
-    } catch (e) {
-      state = { mode: stateJson }; // Fallback for old state format
+// Callback: Handle LinkedIn redirect
+app.get("/auth/linkedin/callback", async (req, res) => {
+  const { code, state: stateJson } = req.query;
+  if (!code) return res.status(400).send("No code provided");
+
+  let state: any = {};
+  try {
+    state = JSON.parse(stateJson as string);
+  } catch (e) {
+    state = { mode: stateJson }; // Fallback for old state format
+  }
+
+  const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
+
+  try {
+    // Exchange code for token
+    const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code as string,
+        redirect_uri: redirectUri,
+        client_id: process.env.LINKEDIN_CLIENT_ID || "",
+        client_secret: process.env.LINKEDIN_CLIENT_SECRET || "",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (tokenData.error) throw new Error(tokenData.error_description);
+
+    const accessToken = tokenData.access_token;
+
+    // Get User info
+    const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const userData = await userResponse.json();
+    const userUrn = `urn:li:person:${userData.sub}`;
+
+    // Save to Supabase if we have a userId
+    const effectiveUserId = state.userId || userData.sub;
+
+    const { error: upsertError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: effectiveUserId,
+        linkedin_token: accessToken,
+        linkedin_urn: userUrn,
+        updated_at: new Date().toISOString()
+      });
+
+    if (upsertError) {
+      console.error("Supabase Upsert Error:", upsertError);
+      // Note: If columns don't exist, this will fail. 
+      // We'll proceed but the token won't be saved.
     }
 
-    const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
-
-    try {
-      // Exchange code for token
-      const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code: code as string,
-          redirect_uri: redirectUri,
-          client_id: process.env.LINKEDIN_CLIENT_ID || "",
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET || "",
-        }),
-      });
-
-      const tokenData = await tokenResponse.json();
-      if (tokenData.error) throw new Error(tokenData.error_description);
-
-      const accessToken = tokenData.access_token;
-
-      // Get User info
-      const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const userData = await userResponse.json();
-      const userUrn = `urn:li:person:${userData.sub}`;
-
-      // Save to Supabase if we have a userId
-      const effectiveUserId = state.userId || userData.sub;
-
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: effectiveUserId,
-          linkedin_token: accessToken,
-          linkedin_urn: userUrn,
-          updated_at: new Date().toISOString()
-        });
-
-      if (upsertError) {
-        console.error("Supabase Upsert Error:", upsertError);
-        // Note: If columns don't exist, this will fail. 
-        // We'll proceed but the token won't be saved.
-      }
-
-      res.send(`
+    res.send(`
         <html>
           <head>
             <title>Autenticando...</title>
@@ -129,99 +126,111 @@ async function startServer() {
           </body>
         </html>
       `);
-    } catch (error: any) {
-      console.error("LinkedIn Auth Error:", error);
-      res.status(500).send(`
+  } catch (error: any) {
+    console.error("LinkedIn Auth Error:", error);
+    res.status(500).send(`
         <div style="padding: 20px; font-family: sans-serif; text-align: center;">
           <h2 style="color: #d32f2f;">Error de Autenticación</h2>
           <p>${error.message}</p>
           <button onclick="window.close()" style="padding: 10px 20px; background: #0a66c2; color: white; border: none; border-radius: 4px; cursor: pointer;">Cerrar</button>
         </div>
       `);
-    }
-  });
+  }
+});
 
-  // API: Check if connected
-  app.get("/api/auth/linkedin/status", async (req, res) => {
-    const userId = req.query.userId as string;
-    if (!userId) return res.json({ connected: false });
+// API: Check if connected
+app.get("/api/auth/linkedin/status", async (req, res) => {
+  const userId = req.query.userId as string;
+  if (!userId) return res.json({ connected: false });
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('linkedin_token')
-      .eq('id', userId)
-      .single();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('linkedin_token')
+    .eq('id', userId)
+    .single();
 
-    res.json({ connected: !!(data?.linkedin_token) && !error });
-  });
+  res.json({ connected: !!(data?.linkedin_token) && !error });
+});
 
-  // API: Post to LinkedIn
-  app.post("/api/linkedin/post", async (req, res) => {
-    const { text, userId } = req.body;
-    if (!userId) return res.status(401).json({ error: "User ID required" });
+// API: Post to LinkedIn
+app.post("/api/linkedin/post", async (req, res) => {
+  const { text, userId } = req.body;
+  if (!userId) return res.status(401).json({ error: "User ID required" });
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('linkedin_token, linkedin_urn')
-      .eq('id', userId)
-      .single();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('linkedin_token, linkedin_urn')
+    .eq('id', userId)
+    .single();
 
-    if (error || !data?.linkedin_token || !data?.linkedin_urn) {
-      return res.status(401).json({ error: "Not connected to LinkedIn or profile not found" });
-    }
+  if (error || !data?.linkedin_token || !data?.linkedin_urn) {
+    return res.status(401).json({ error: "Not connected to LinkedIn or profile not found" });
+  }
 
-    if (!text) return res.status(400).json({ error: "No text provided" });
+  if (!text) return res.status(400).json({ error: "No text provided" });
 
-    try {
-      const postResponse = await fetch("https://api.linkedin.com/v2/ugcPosts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${data.linkedin_token}`,
-          "Content-Type": "application/json",
-          "X-Restli-Protocol-Version": "2.0.0",
-        },
-        body: JSON.stringify({
-          author: data.linkedin_urn,
-          lifecycleState: "PUBLISHED",
-          specificContent: {
-            "com.linkedin.ugc.ShareContent": {
-              shareCommentary: { text },
-              shareMediaCategory: "NONE",
-            },
+  try {
+    const postResponse = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${data.linkedin_token}`,
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify({
+        author: data.linkedin_urn,
+        lifecycleState: "PUBLISHED",
+        specificContent: {
+          "com.linkedin.ugc.ShareContent": {
+            shareCommentary: { text },
+            shareMediaCategory: "NONE",
           },
-          visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
-        }),
-      });
+        },
+        visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+      }),
+    });
 
-      const postData = await postResponse.json();
-      if (postResponse.ok) {
-        res.json({ success: true, data: postData });
-      } else {
-        res.status(postResponse.status).json({ error: postData });
-      }
-    } catch (error: any) {
-      console.error("LinkedIn Post Error:", error);
-      res.status(500).json({ error: error.message });
+    const postData = await postResponse.json();
+    if (postResponse.ok) {
+      res.json({ success: true, data: postData });
+    } else {
+      res.status(postResponse.status).json({ error: postData });
     }
-  });
+  } catch (error: any) {
+    console.error("LinkedIn Post Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+// Export for Vercel
+export default app;
+
+// Vite middleware for development
+if (process.env.NODE_ENV !== "production") {
+  const startLocal = async () => {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
+
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  };
+  startLocal();
+} else {
+  app.use(express.static(path.join(process.cwd(), "dist")));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "dist", "index.html"));
+  });
+
+  if (!process.env.VERCEL) {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Production server running on http://localhost:${PORT}`);
     });
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
 }
-
-startServer();
