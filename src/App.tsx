@@ -412,7 +412,7 @@ export default function App() {
       }
     } catch (e) {
       console.error("Error fetching image through proxy:", e);
-      setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200`);
+      setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200&auto=format&fit=crop`);
     } finally {
       setIsGeneratingImage(false);
     }

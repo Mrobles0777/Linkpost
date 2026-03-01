@@ -147,24 +147,39 @@ app.get("/api/image/search", async (req, res) => {
   if (!q) return res.status(400).json({ error: "Query required" });
 
   try {
-    // Clean and limit keywords to improve Unsplash results
-    const cleanKeywords = (q as string)
+    const qStr = (q as string) || "data center technology";
+    const cleanKeywords = qStr
       .replace(/[,]/g, ' ')
       .trim()
       .split(/\s+/)
-      .slice(0, 5)
+      .slice(0, 3)
       .join(',');
 
     const imageUrl = `https://source.unsplash.com/featured/1200x627/?${encodeURIComponent(cleanKeywords)}`;
+    console.log(`[ImageSearch] Keywords: ${cleanKeywords}`);
+    console.log(`[ImageSearch] URL: ${imageUrl}`);
 
-    // Server-side fetch follows redirects automatically
-    const imgRes = await fetch(imageUrl);
-    if (imgRes.ok) {
-      res.json({ url: imgRes.url });
-    } else {
-      res.status(500).json({ error: "Unsplash returned an error" });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const imgRes = await fetch(imageUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (imgRes.ok) {
+        console.log(`[ImageSearch] Success! Resolved: ${imgRes.url}`);
+        res.json({ url: imgRes.url });
+      } else {
+        console.error(`[ImageSearch] Unsplash error: ${imgRes.status}`);
+        res.status(500).json({ error: `Unsplash error: ${imgRes.status}` });
+      }
+    } catch (fErr: any) {
+      clearTimeout(timeout);
+      console.error(`[ImageSearch] Fetch error: ${fErr.message}`);
+      res.status(500).json({ error: "Image fetch timeout or network error" });
     }
   } catch (err: any) {
+    console.error(`[ImageSearch] Error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
