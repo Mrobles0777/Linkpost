@@ -497,7 +497,7 @@ export default function App() {
             <div className="bg-white/20 p-4 rounded-2xl mb-4 backdrop-blur-sm">
               <Database className="w-12 h-12 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-center">DataCenter AI Creator</h1>
+            <h1 className="text-2xl font-bold text-center">Linkpost AI Creator</h1>
             <p className="text-white/80 text-sm mt-2 text-center">
               {authMode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta gratuita'}
             </p>
@@ -603,7 +603,7 @@ export default function App() {
             <div className="bg-[#0A66C2] p-1.5 rounded">
               <Database className="w-5 h-5 text-white" />
             </div>
-            <h1 className="font-bold text-lg tracking-tight">DataCenter <span className="text-[#0A66C2]">AI</span> Creator</h1>
+            <h1 className="font-bold text-lg tracking-tight">Linkpost <span className="text-[#0A66C2]">AI</span> Creator</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
