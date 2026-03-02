@@ -14,11 +14,34 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY || ""
 );
 
+// Helper to get the correct Redirect URI
+const getRedirectUri = (req: express.Request) => {
+  let baseUrl = process.env.APP_URL;
+
+  // On Vercel, use VERCEL_URL if APP_URL is not set
+  if (!baseUrl && process.env.VERCEL_URL) {
+    baseUrl = `https://${process.env.VERCEL_URL}`;
+  }
+
+  // Fallback to current host if nothing else is available
+  if (!baseUrl) {
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    baseUrl = `${protocol}://${req.get('host')}`;
+  }
+
+  // Normalize: Remove trailing slash
+  baseUrl = baseUrl.replace(/\/$/, "");
+
+  const redirectUri = `${baseUrl}/auth/linkedin/callback`;
+  console.log(`[LinkedIn] Using redirectUri: ${redirectUri}`);
+  return redirectUri;
+};
+
 // API: Get Auth URL
 app.get("/api/auth/linkedin/url", (req, res) => {
   const isLogin = req.query.login === 'true';
   const userId = req.query.userId as string;
-  const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
+  const redirectUri = getRedirectUri(req);
 
   const state = JSON.stringify({
     mode: isLogin ? "login" : "connect",
@@ -48,7 +71,7 @@ app.get("/auth/linkedin/callback", async (req, res) => {
     state = { mode: stateJson }; // Fallback for old state format
   }
 
-  const redirectUri = `${process.env.APP_URL}/auth/linkedin/callback`;
+  const redirectUri = getRedirectUri(req);
 
   try {
     // Exchange code for token
