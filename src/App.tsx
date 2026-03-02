@@ -12,12 +12,7 @@ import {
   ChevronRight,
   Database,
   Zap,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
   LogOut,
-  UserPlus,
   Settings,
   X,
   Upload
@@ -51,13 +46,11 @@ export default function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // App Auth State (Supabase)
-  const [user, setUser] = useState<any>(null);
-  const [isLinkedInUser, setIsLinkedInUser] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [user, setUser] = useState<any>(() => {
+    const saved = localStorage.getItem('dc_linkedin_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isLinkedInUser, setIsLinkedInUser] = useState(() => !!localStorage.getItem('dc_linkedin_user'));
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
@@ -78,13 +71,13 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('Supabase getSession error:', error.message);
-        alert(`Error al conectar con Supabase: ${error.message}. Verifica tu conexión o si hay un bloqueador de anuncios activo.`);
       }
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUser(session.user);
+      }
       setIsCheckingAuth(false);
     }).catch(err => {
       console.error('Supabase getSession critical error:', err);
-      alert('Error crítico de red al conectar con Supabase. Esto suele ser causado por un bloqueador de anuncios (como Brave Shield o uBlock) o un firewall.');
       setIsCheckingAuth(false);
     });
 
@@ -155,14 +148,16 @@ export default function App() {
         setIsConnected(true);
         if (event.data.isLogin && event.data.user) {
           setIsLinkedInUser(true);
-          setUser({
+          const linkedinUser = {
             id: event.data.user.sub,
             email: event.data.user.email,
             user_metadata: {
               full_name: event.data.user.name,
               avatar_url: event.data.user.picture
             }
-          });
+          };
+          setUser(linkedinUser);
+          localStorage.setItem('dc_linkedin_user', JSON.stringify(linkedinUser));
         }
       }
     };
@@ -254,47 +249,13 @@ export default function App() {
     }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-
-    // Password Policy Check
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(loginPassword)) {
-      setAuthError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial.');
-      return;
-    }
-
-    setIsAuthLoading(true);
-    try {
-      if (authMode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: loginEmail,
-          password: loginPassword,
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: loginEmail,
-          password: loginPassword,
-        });
-        if (error) throw error;
-        alert('¡Registro exitoso! Por favor, revisa tu correo para confirmar tu cuenta (si la confirmación está habilitada en Supabase).');
-        setAuthMode('login');
-      }
-    } catch (e: any) {
-      setAuthError(e.message || 'Error en la autenticación');
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('dc_linkedin_user');
     setIsLinkedInUser(false);
     setUser(null);
     setProfile('');
-    setLoginPassword('');
     setIsSettingsOpen(false);
   };
 
@@ -304,19 +265,6 @@ export default function App() {
     setSettingsMessage({ type: '', text: '' });
 
     try {
-      // Update Password if provided
-      if (newPassword) {
-        if (newPassword !== confirmPassword) {
-          throw new Error('Las contraseñas no coinciden');
-        }
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!passwordRegex.test(newPassword)) {
-          throw new Error('La nueva contraseña no cumple con las políticas de seguridad');
-        }
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
-        if (error) throw error;
-      }
-
       // Update Profile (CV) in Supabase
       localStorage.setItem('dc_ai_profile', profile);
       if (user) {
@@ -467,96 +415,37 @@ export default function App() {
             </div>
             <h1 className="text-2xl font-bold text-center">Linkpost AI Creator</h1>
             <p className="text-white/80 text-sm mt-2 text-center">
-              {authMode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta gratuita'}
+              Tu creador de contenido inteligente para LinkedIn
             </p>
           </div>
 
-          <form onSubmit={handleAuth} className="p-8 space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Correo Electrónico</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    required
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none"
-                    placeholder="ejemplo@correo.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Contraseña</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {authError && (
-              <p className="text-xs text-red-500 bg-red-50 p-3 rounded-lg border border-red-100">
-                {authError}
+          <div className="p-8 space-y-6">
+            <div className="text-center space-y-2">
+              <p className="text-gray-600 text-sm">
+                Inicia sesión de forma segura para gestionar tu perfil y publicar contenido directamente.
               </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isAuthLoading}
-              className="w-full py-4 bg-[#0A66C2] text-white rounded-xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0A66C2]/20 active:scale-[0.98]"
-            >
-              {isAuthLoading ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
-              ) : (
-                authMode === 'login' ? "Iniciar Sesión" : "Registrarse"
-              )}
-            </button>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="text-xs text-[#0A66C2] font-bold hover:underline"
-              >
-                {authMode === 'login' ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Inicia sesión'}
-              </button>
-            </div>
-
-            <div className="relative py-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500 font-bold">O también</span>
-              </div>
             </div>
 
             <button
               type="button"
+              disabled={isAuthLoading}
               onClick={() => handleConnect(true)}
-              className="w-full py-3 border-2 border-[#0A66C2] text-[#0A66C2] rounded-xl font-bold hover:bg-[#0A66C2]/5 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+              className="w-full py-4 bg-[#0A66C2] text-white rounded-xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0A66C2]/20 active:scale-[0.98] disabled:opacity-50"
             >
-              <Database className="w-5 h-5" />
-              Continuar con LinkedIn
+              {isAuthLoading ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <Database className="w-5 h-5" />
+                  Continuar con LinkedIn
+                </>
+              )}
             </button>
-          </form>
+
+            <p className="text-[10px] text-center text-gray-400">
+              Al continuar, aceptas que Linkpost AI Creator acceda a tu perfil básico de LinkedIn para personalizar tu experiencia.
+            </p>
+          </div>
         </motion.div>
       </div>
     );
@@ -698,35 +587,6 @@ export default function App() {
 
                 <div className="h-px bg-gray-100" />
 
-                {/* Password Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-[#0A66C2]">
-                    <Lock className="w-5 h-5" />
-                    <h3 className="font-bold uppercase text-xs tracking-widest">Cambiar Contraseña</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">Nueva Contraseña</label>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">Confirmar</label>
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0A66C2] outline-none"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 {settingsMessage.text && (
                   <div className={cn(
