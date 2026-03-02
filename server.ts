@@ -31,8 +31,9 @@ const getRedirectUri = (req: express.Request) => {
     baseUrl = `${protocol}://${req.get('host')}`;
   }
 
-  // Normalize: Remove trailing slash
+  // Normalize: Remove trailing slash AND duplicate redirect paths
   baseUrl = baseUrl.replace(/\/$/, "");
+  baseUrl = baseUrl.replace(/\/auth\/linkedin\/callback$/, "");
 
   const redirectUri = `${baseUrl}/auth/linkedin/callback`;
 
