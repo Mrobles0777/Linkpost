@@ -20,7 +20,8 @@ import {
   UserPlus,
   Settings,
   X,
-  Upload
+  Upload,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateLinkedInContent, LinkedInPost, summarizeCV, generateImagePromptFromScript } from './services/geminiService';
@@ -49,6 +50,8 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
 
   // App Auth State (Supabase)
   const [user, setUser] = useState<any>(null);
@@ -380,6 +383,36 @@ export default function App() {
       alert(`Error al publicar: ${e.message}`);
     } finally {
       setIsPosting(false);
+    }
+  };
+
+  const handleSchedulePost = async () => {
+    if (!post || !scheduleDate) return;
+    setIsScheduling(true);
+    const fullText = `${post.hook}\n\n\n${post.body}\n\n\n${post.cta}\n\n\n${post.hashtags.join(' ')}`;
+
+    try {
+      const res = await fetch('/api/linkedin/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: fullText,
+          userId: user.id,
+          imageUrl: selectedImage,
+          scheduledFor: new Date(scheduleDate).toISOString()
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('¡Post programado con éxito!');
+        setScheduleDate('');
+      } else {
+        throw new Error(data.error || 'Error desconocido');
+      }
+    } catch (e: any) {
+      alert(`Error al programar: ${e.message}`);
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -1046,22 +1079,53 @@ export default function App() {
                         </p>
                       </div>
                     ) : (
-                      <button
-                        onClick={handlePostToLinkedIn}
-                        disabled={isPosting}
-                        className={cn(
-                          "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
-                          isPosting
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20"
-                        )}
-                      >
-                        {isPosting ? (
-                          <><RefreshCw className="w-5 h-5 animate-spin" /> Publicando...</>
+                      <div className="space-y-3">
+                        <div className="flex flex-col gap-2 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                          <label className="text-xs font-bold text-gray-500 uppercase">Opcional: Programar Publicación</label>
+                          <input
+                            type="datetime-local"
+                            value={scheduleDate}
+                            onChange={(e) => setScheduleDate(e.target.value)}
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#0A66C2]"
+                          />
+                        </div>
+
+                        {scheduleDate ? (
+                          <button
+                            onClick={handleSchedulePost}
+                            disabled={isScheduling}
+                            className={cn(
+                              "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
+                              isScheduling
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 text-sm"
+                            )}
+                          >
+                            {isScheduling ? (
+                              <><RefreshCw className="w-5 h-5 animate-spin" /> Programando...</>
+                            ) : (
+                              <><Calendar className="w-5 h-5" /> Programar ({new Date(scheduleDate).toLocaleDateString()})</>
+                            )}
+                          </button>
                         ) : (
-                          <><Send className="w-5 h-5" /> Publicar ahora en LinkedIn</>
+                          <button
+                            onClick={handlePostToLinkedIn}
+                            disabled={isPosting}
+                            className={cn(
+                              "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg",
+                              isPosting
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20"
+                            )}
+                          >
+                            {isPosting ? (
+                              <><RefreshCw className="w-5 h-5 animate-spin" /> Publicando...</>
+                            ) : (
+                              <><Send className="w-5 h-5" /> Publicar ahora en LinkedIn</>
+                            )}
+                          </button>
                         )}
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>

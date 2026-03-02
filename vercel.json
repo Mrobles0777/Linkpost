@@ -13,5 +13,11 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/cron/process-posts",
+            "schedule": "*/15 * * * *"
+        }
     ]
 }

@@ -313,6 +313,192 @@ app.post("/api/linkedin/post", async (req, res) => {
   }
 });
 
+// API: Schedule LinkedIn Post
+app.post("/api/linkedin/schedule", async (req, res) => {
+  const { text, userId, imageUrl, scheduledFor } = req.body;
+
+  if (!userId) return res.status(401).json({ error: "User ID required" });
+  if (!text) return res.status(400).json({ error: "No text provided" });
+  if (!scheduledFor) return res.status(400).json({ error: "Scheduled date required" });
+
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('linkedin_token, linkedin_urn')
+      .eq('id', userId)
+      .single();
+
+    if (!profile?.linkedin_token || !profile?.linkedin_urn) {
+      return res.status(401).json({
+        error: "Not connected to LinkedIn or profile not found"
+      });
+    }
+
+    const { error } = await supabase
+      .from('scheduled_posts')
+      .insert([
+        {
+          user_id: userId,
+          content_text: text,
+          image_url: imageUrl,
+          scheduled_for: scheduledFor,
+          status: 'pending'
+        }
+      ]);
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Cron Job to Process Scheduled Posts
+app.get("/api/cron/process-posts", async (req, res) => {
+  // Configurable simple secret to prevent external random calls
+  const CRON_SECRET = process.env.CRON_SECRET || "my-super-secret-cron-key";
+  if (req.headers.authorization !== `Bearer ${CRON_SECRET}` && req.query.key !== CRON_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Create an Admin client to bypass RLS policies during the Cron Execution
+  const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(process.env.VITE_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY)
+    : supabase;
+
+  try {
+    // Find all pending posts that are due
+    const { data: posts, error: fetchError } = await supabaseAdmin
+      .from('scheduled_posts')
+      .select('*, profiles!inner(id, linkedin_token, linkedin_urn)')
+      .eq('status', 'pending')
+      .lte('scheduled_for', new Date().toISOString());
+
+    if (fetchError) throw fetchError;
+
+    if (!posts || posts.length === 0) {
+      return res.json({ success: true, message: "No posts to process" });
+    }
+
+    const results = [];
+
+    for (const post of posts) {
+      try {
+        let mediaAsset = null;
+        const profile = post.profiles;
+
+        if (!profile || !profile.linkedin_token) {
+          throw new Error("LinkedIn token not found for user");
+        }
+
+        // 1. Configurar imagen si existe
+        if (post.image_url) {
+          const registerRes = await fetch("https://api.linkedin.com/v2/assets?action=registerUpload", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${profile.linkedin_token}`,
+              "Content-Type": "application/json",
+              "X-Restli-Protocol-Version": "2.0.0",
+            },
+            body: JSON.stringify({
+              registerUploadRequest: {
+                recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+                owner: profile.linkedin_urn,
+                serviceRelationships: [{
+                  relationshipType: "OWNER",
+                  identifier: "urn:li:userGeneratedContent"
+                }]
+              }
+            })
+          });
+
+          const registerData = await registerRes.json();
+          if (!registerRes.ok || !registerData.value) throw new Error("Error registering image upload");
+
+          const uploadMechanism = registerData.value.uploadMechanism;
+          const uploadUrl = uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl || uploadMechanism?.["com.linkedin.ads.directUploadV2"]?.uploadUrl;
+
+          if (!uploadUrl) throw new Error("No uploadUrl found");
+
+          mediaAsset = registerData.value.asset;
+
+          const imageRes = await fetch(post.image_url);
+          const imageBuffer = await imageRes.arrayBuffer();
+
+          const uploadRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${profile.linkedin_token}`,
+              "Content-Type": "image/jpeg"
+            },
+            body: imageBuffer
+          });
+
+          if (!uploadRes.ok) throw new Error("LinkedIn Image Upload failed");
+        }
+
+        // 2. Crear y enviar el post
+        const specificContent: any = {
+          "com.linkedin.ugc.ShareContent": {
+            shareCommentary: { text: post.content_text },
+            shareMediaCategory: mediaAsset ? "IMAGE" : "NONE",
+          }
+        };
+
+        if (mediaAsset) {
+          specificContent["com.linkedin.ugc.ShareContent"].media = [{
+            status: "READY",
+            description: { text: "Scheduled post image" },
+            media: mediaAsset
+          }];
+        }
+
+        const postResponse = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${profile.linkedin_token}`,
+            "Content-Type": "application/json",
+            "X-Restli-Protocol-Version": "2.0.0",
+          },
+          body: JSON.stringify({
+            author: profile.linkedin_urn,
+            lifecycleState: "PUBLISHED",
+            specificContent,
+            visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+          }),
+        });
+
+        if (!postResponse.ok) {
+          const errBody = await postResponse.text();
+          throw new Error(`Error publishing post: ${errBody}`);
+        }
+
+        // 3. Marcar como publicado
+        await supabaseAdmin
+          .from('scheduled_posts')
+          .update({ status: 'published', error_message: null })
+          .eq('id', post.id);
+
+        results.push({ id: post.id, status: 'published' });
+
+      } catch (postError: any) {
+        // En caso de fallo individual, marcar como 'failed' y registrar error
+        await supabaseAdmin
+          .from('scheduled_posts')
+          .update({ status: 'failed', error_message: postError.message })
+          .eq('id', post.id);
+
+        results.push({ id: post.id, status: 'failed', error: postError.message });
+      }
+    }
+
+    res.json({ success: true, processed: results });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Export for Vercel
 export default app;
 
