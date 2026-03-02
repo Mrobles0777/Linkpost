@@ -16,14 +16,16 @@ const supabase = createClient(
 
 // Helper to get the correct Redirect URI
 const getRedirectUri = (req: express.Request) => {
-  let baseUrl = process.env.APP_URL;
+  let baseUrl = process.env.APP_URL?.trim();
 
   // On Vercel, use VERCEL_URL if APP_URL is not set
   if (!baseUrl && process.env.VERCEL_URL) {
-    baseUrl = `https://${process.env.VERCEL_URL}`;
+    const vUrl = process.env.VERCEL_URL.trim();
+    // Vercel URL doesn't include https protocol
+    baseUrl = vUrl.startsWith('http') ? vUrl : `https://${vUrl}`;
   }
 
-  // Fallback to current host if nothing else is available
+  // Fallback to current host
   if (!baseUrl) {
     const protocol = req.get('x-forwarded-proto') || req.protocol;
     baseUrl = `${protocol}://${req.get('host')}`;
@@ -33,7 +35,10 @@ const getRedirectUri = (req: express.Request) => {
   baseUrl = baseUrl.replace(/\/$/, "");
 
   const redirectUri = `${baseUrl}/auth/linkedin/callback`;
-  console.log(`[LinkedIn] Using redirectUri: ${redirectUri}`);
+
+  // Important Log for Vercel troubleshooting
+  console.log(`[LinkedIn OAuth] BaseURL: ${baseUrl} | Redirect: ${redirectUri}`);
+
   return redirectUri;
 };
 
