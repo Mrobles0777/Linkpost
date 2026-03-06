@@ -176,34 +176,26 @@ app.get("/api/image/search", async (req, res) => {
   try {
     const rawPrompt = (q as string) || "data center technology";
 
-    // Since free external AI image APIs (Pollinations/Lexica) are frequently down 
-    // and LoremFlickr often defaults to random cats when tags mismatch,
-    // we use a curated list of highly professional, premium Unsplash photos 
-    // specifically tailored for Data Centers, IT infrastructure, and AI.
-    const curatedImages = [
-      "https://images.unsplash.com/photo-1558494949-ef010cbdcc48?w=1200&h=627&fit=crop", // Servers
-      "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=1200&h=627&fit=crop", // Network
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=627&fit=crop", // Circuit / Tech
-      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&h=627&fit=crop", // Cyber
-      "https://images.unsplash.com/photo-1597852074816-d933c7d2b988?w=1200&h=627&fit=crop", // Server Racks Glowing
-      "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&h=627&fit=crop", // AI Processor
-      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=627&fit=crop",  // Matrix / Data
-      "https://images.unsplash.com/photo-1614064641936-3899d55aa3ce?w=1200&h=627&fit=crop"  // Clean tech
-    ];
+    // Improved logic for image generation: 
+    // We'll use Pollinations AI with a specific technical seed and style
+    const seed = Math.floor(Math.random() * 1000000);
+    const refinedPrompt = encodeURIComponent(`${rawPrompt}, professional technology photography, minimalist, high-tech, cinematic lighting, ultra-detailed, 8k, bokeh background`);
 
-    // Pick a pseudo-random image based on the prompt's length to ensure 
-    // the same prompt gets the same image, but different ones get variance.
-    const seed = rawPrompt.length;
-    const randomIndex = Math.floor((Math.random() * 100 + seed)) % curatedImages.length;
-    const generatedImageUrl = curatedImages[randomIndex];
+    const generatedImageUrl = `https://image.pollinations.ai/prompt/${refinedPrompt}?width=1200&height=627&nologo=true&seed=${seed}&model=flux`;
 
-    console.log(`[ImageAPI] Curated Image Selected: ${generatedImageUrl}`);
+    console.log(`[ImageAPI] AI Image Generated with Prompt: ${rawPrompt}`);
 
+    // Verify if it's reachable or just return (better for UX to return and let frontend handle error)
     res.json({ url: generatedImageUrl });
 
   } catch (err: any) {
     console.error(`[ImageAI] Error: ${err.message}`);
-    res.status(500).json({ error: err.message });
+    // Fallback to a high-quality curated Unsplash image if everything fails
+    const fallbacks = [
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc48?w=1200&h=627&fit=crop",
+      "https://images.unsplash.com/photo-1597852074816-d933c7d2b988?w=1200&h=627&fit=crop"
+    ];
+    res.json({ url: fallbacks[Math.floor(Math.random() * fallbacks.length)] });
   }
 });
 
