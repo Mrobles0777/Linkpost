@@ -48,7 +48,7 @@ export async function generateLinkedInContent(
   try {
     console.log("Calling Gemini (Banana mode) for topic:", topic);
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -104,7 +104,7 @@ export async function summarizeCV(cvText: string): Promise<string> {
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
 
@@ -128,7 +128,7 @@ export async function generateImagePromptFromScript(script: string): Promise<str
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
 

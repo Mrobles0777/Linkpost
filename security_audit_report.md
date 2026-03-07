@@ -1,34 +1,41 @@
 # SECURITY AUDIT REPORT
+**Auditor:** Antigravity AI Secure Code Auditor
 
-🔐 Credenciales: [CRÍTICO]
-🔐 Base de Datos Firebase: [OK]
-🔐 Base de Datos Supabase: [CRÍTICO]
-🔐 Arquitectura: [CRÍTICO]
-🔐 Autenticación / Autorización: [CRÍTICO]
-🔐 APIs / Functions: [MEDIO]
-🔐 Dependencias: [OK]
+🔐 **Credenciales:** [CRÍTICO]
+🔐 **Base de Datos Firebase:** [OK] (No se utiliza Firebase, todo corre en Supabase)
+🔐 **Base de Datos Supabase:** [MEDIO]
+🔐 **Arquitectura:** [CRÍTICO]
+🔐 **Autenticación / Autorización:** [MEDIO]
+🔐 **APIs / Functions:** [CRÍTICO]
+🔐 **Dependencias:** [OK]
 
-RIESGO TOTAL: [ALTO]
-DEPLOY RECOMENDADO: [NO]
+---
+**RIESGO TOTAL:** [ALTO]
+**DEPLOY RECOMENDADO:** [NO]
+---
 
-🧩 DETALLES:
+## 🧩 DETALLES DE VULNERABILIDADES
 
-- Archivo / Componente: `vite.config.ts`, `src/services/geminiService.ts`
-- Descripción del problema: La clave de la API de Gemini (`GEMINI_API_KEY`) se inyecta directamente en el bundle del frontend, exponiendo la credencial de facturación a cualquier usuario que inspeccione el código.
-- Nivel de riesgo: 🔴 CRÍTICO
-- Recomendación: Mueve toda la lógica de `geminiService.ts` al backend (`server.ts`) y reemplaza la llamada desde el cliente por una petición HTTP a tu propia API.
+### 1. Fuga de Claves de API (API Key Exposure)
+- **Archivo / Componente:** `vite.config.ts`, `src/services/geminiService.ts`
+- **Descripción del problema:** La clave secreta de Gemini (`GEMINI_API_KEY`) está siendo inyectada forzosamente en el frontend a través de la propiedad `define` en `vite.config.ts` (`process.env.GEMINI_API_KEY`), y es utilizada directamente por la librería de Gemini dentro de `geminiService.ts`. Cualquier usuario puede inspeccionar el código fuente del navegador en producción y extraer tu API Key, consumiendo tus fondos de facturación o cuotas.
+- **Nivel de riesgo:** 🔴 CRÍTICO
+- **Recomendación:** Se DEBE mover toda la lógica que invoca el SDK de Gemini (`@google/genai`) y la generación de prompts hacia el backend (dentro de `server.ts`). El frontend debe limitarse a hacer un `GET` o `POST` a tu servidor, el cual guardará localmente la Key en su sistema seguro y se comunicará con Gemini.
 
-- Archivo / Componente: `server.ts` (Ruta `/api/linkedin/post`)
-- Descripción del problema: El endpoint de publicación no verifica la identidad del usuario que realiza la petición originaria; obtiene el `userId` desde el `req.body`, posibilitando que un tercero malicioso publique en el perfil de LinkedIn de cualquier usuario si conoce su UUID.
-- Nivel de riesgo: 🔴 CRÍTICO
-- Recomendación: El backend debe recibir el token JWT de sesión de Supabase en el header `Authorization`, validarlo, y extraer el `userId` desde el token seguro, ignorando el del `body`.
+### 2. Endpoints Backend Sin Autorización de Sesión Requerida (Impersonation)
+- **Archivo / Componente:** `server.ts` (rutas `/api/linkedin/post` y `/api/auth/linkedin/status`)
+- **Descripción del problema:** Los endpoints reciben un `userId` en el payload/query. Dependen únicamente de este `userId` para buscar tokens en DB y ejecutar acciones críticas en LinkedIn. No hay verificación o validación de Bearer Token JWT (Auth real) de Supabase que confirme que quien hace la petición HTTP es realmente el dueño del ID especificado. Un atacante malicioso podría interceptar -o adivinar- el ID UUID de cualquier usuario y enviar posts automatizados a nombre de esa víctima.
+- **Nivel de riesgo:** 🔴 CRÍTICO
+- **Recomendación:** Validar los requests mediante autenticación real. Extraer el token Bearer desde el header (`Authorization: Bearer <TOKEN>`), y usar `supabase.auth.getUser(token)` para confirmar que el UID del token encriptado sea idéntico al que intenta postear.
 
-- Archivo / Componente: `server.ts` (Callback LinkedIn de línea 85) y DB Supabase
-- Descripción del problema: El servidor realiza un `upsert` a la tabla `profiles` mediante `SUPABASE_ANON_KEY`, sin contexto de autenticación de usuario. Si las reglas RLS de Supabase están correctamente definidas (`auth.uid() = id`), esta consulta fallará. Si el proceso de base de datos es exitoso en el entorno actual, significa que los filtros RLS están desactivados o permisivos (permitiendo escrituras anónimas globales).
-- Nivel de riesgo: 🔴 CRÍTICO
-- Recomendación: Modifica el cliente de Supabase alojado en `server.ts` para utilizar `SUPABASE_SERVICE_ROLE_KEY` en lugar de la `ANON_KEY`, para evadir las políticas RLS únicamente desde el entorno de servidor cerrado. Almacenar tokens crudos además merece encriptación extra.
+### 3. Vulnerabilidad RLS de Supabase con UPSERT Directo desde Cliente
+- **Archivo / Componente:** `src/App.tsx` (Función `saveProfileToSupabase` y otras)
+- **Descripción del problema:** El cliente realiza un `upsert` a la tabla `profiles` empleando la `VITE_SUPABASE_ANON_KEY`. Si en el panel de control de Supabase el RLS (Row Level Security) admite inserciones y actualizaciones anónimas, esto resultaría en permitirle a cualquier persona reescribir la información o tokens de otros perfiles.
+- **Nivel de riesgo:** 🟠 MEDIO
+- **Recomendación:** Constatar en el panel de Supabase SQL que la tabla `profiles` tiene RLS habilitado, y en su policy definir: `(auth.uid() = id)` forzando que solo el verdadero dueño autenticado pueda editar su row. Alternativamente, puedes forzar estas actualizaciones mediante el `server.ts` haciendo uso del `SUPABASE_SERVICE_ROLE_KEY` del lado del servidor.
 
-- Archivo / Componente: API General (`/api/image/search`)
-- Descripción del problema: Faltas de Rate Limiting e inyección de abuso. Los endpoints se encuentran totalmente públicos.
-- Nivel de riesgo: 🟠 MEDIO
-- Recomendación: Configura `express-rate-limit` con ventanas seguras de acceso en la inicialización de express.
+### 4. Dependencias Huérfanas
+- **Archivo / Componente:** `package.json`
+- **Descripción del problema:** Contiene `better-sqlite3` pero no está siendo instanciado ni requerido de forma real en los archivos de la app ni del backend. Esto resulta en vulnerabilidades colaterales innecesarias, un mayor tamaño del instalable o problemas de Docker.
+- **Nivel de riesgo:** 🟢 BAJO / INFORMATIVO
+- **Recomendación:** Retirar `better-sqlite3` si ya no se utiliza la base de datos local pre-Supabase.

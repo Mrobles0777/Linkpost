@@ -83,7 +83,8 @@ export default function App() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isLinkedInUser) {
+      const isActuallyLinkedInUser = !!localStorage.getItem('dc_linkedin_user');
+      if (!isActuallyLinkedInUser) {
         setUser(session?.user ?? null);
       }
     });
@@ -957,7 +958,6 @@ export default function App() {
                   )}
                 </div>
               </motion.div>
-            )
             )}
           </AnimatePresence>
         </div>
@@ -965,5 +965,3 @@ export default function App() {
     </div>
   );
 }
-
-
