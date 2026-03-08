@@ -1,24 +1,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Better safe than sorry: handle different ways process.env might be available
 const apiKey = process.env.GEMINI_API_KEY || "";
-
-if (!apiKey) {
-  console.warn("WARNING: GEMINI_API_KEY is not defined. AI generation will fail.");
-}
-
-// Explicitly setting apiVersion to "v1" for better stability
-const ai = new GoogleGenAI({ 
-  apiKey,
-  apiVersion: "v1" 
-});
+const ai = new GoogleGenAI({ apiKey });
 
 export interface LinkedInPost {
   hook: string;
   body: string;
   cta: string;
   hashtags: string[];
-  imageKeywords: string; // Keywords for Unsplash search
+  imageKeywords: string;
 }
 
 export async function generateLinkedInContent(
@@ -43,30 +33,26 @@ export async function generateLinkedInContent(
     2. Un "Body" (cuerpo) con insights técnicos y estratégicos. Usa ENUMERACIONES o BULLET POINTS claros. 
     3. Un "CTA" (llamada a la acción) profesional.
     4. Una lista de hashtags relevantes.
-    5. "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA. 
-       REGLAS PARA LA IMAGEN:
-       - Debe ser una escena profesional, técnica y minimalista relacionada con el tema del post.
-       - Incluye términos como: "high-tech", "cinematic lighting", "4k", "professional photography", "minimalist", "clean composition".
-       - Evita texto dentro de la imagen.
-       - Ejemplo: "Futuristic data center corridor with glowing server racks, isometric view, soft blue and white lighting, hyper-realistic, 8k".
+    5. "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA.
 
     REGLAS DE FORMATO CRÍTICAS:
     - Deja UN SALTO DE LÍNEA DOBLE entre cada párrafo y entre cada punto de la lista en el "Body".
     - El contenido debe ser visualmente aireado y fácil de leer en móvil.
     - Asegúrate de que el contenido refleje la experiencia del perfil del usuario.
+    
+    IMPORTANTE: RESPONDE EXCLUSIVAMENTE EN FORMATO JSON.
   `;
 
   try {
-    console.log("Calling Gemini 1.5 Flash (v1) for topic:", topic);
+    console.log("Calling Gemini 1.5 Flash (default version) for topic:", topic);
     
-    if (!apiKey) {
-      throw new Error("API Key de Gemini no encontrada. Por favor verifica tu archivo .env");
-    }
-
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: prompt,
       config: {
+        // Structured output can sometimes be finicky depending on the SDK/API version combo.
+        // We'll try without the strict schema first if hits errors, 
+        // but let's try the standard way with the default API version (v1beta usually).
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -85,86 +71,57 @@ export async function generateLinkedInContent(
       }
     });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error("No se recibió contenido de Gemini (respuesta vacía)");
-    }
+    const text = result.text;
+    if (!text) throw new Error("Respuesta vacía de la IA.");
 
-    const parsed = JSON.parse(text);
-    console.log("Gemini 1.5 Flash Parsed Response:", parsed);
-    return parsed as LinkedInPost;
+    return JSON.parse(text) as LinkedInPost;
   } catch (e: any) {
-    console.error("Detailed Gemini Service Error:", e);
-    // Be very explicit with the error message for the user
-    let errorMsg = e.message || "Error desconocido";
+    console.error("Gemini Error:", e);
     
-    // Check for JSON error objects from the API
-    if (e.status === 404) {
-      errorMsg = "El modelo seleccionado no está disponible para tu API Key o versión de API. He intentado usar gemini-1.5-flash en la v1.";
-    } else if (errorMsg.includes("API key not valid")) {
-      errorMsg = "La API Key de Gemini no es válida o ha expirado.";
-    } else if (errorMsg.includes("quota")) {
-      errorMsg = "Se ha excedido la cuota gratuita de tu API Key.";
+    // FALLBACK: If structured output fails with 400, try a plain text call and manual parse
+    if (e.message?.includes("400") || e.message?.includes("Invalid JSON payload")) {
+      console.log("Attempting fallback without structured output config...");
+      try {
+        const fallbackResult = await ai.models.generateContent({
+          model: "gemini-1.5-flash",
+          contents: prompt + "\n\nResponde únicamente con un objeto JSON válido que contenga los campos: hook, body, cta, hashtags (array), imageKeywords.",
+        });
+        const fallbackText = fallbackResult.text;
+        if (fallbackText) {
+          // Clean the text in case it has markdown blocks
+          const cleaned = fallbackText.replace(/```json|```/g, "").trim();
+          return JSON.parse(cleaned) as LinkedInPost;
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback also failed:", fallbackErr);
+      }
     }
     
-    throw new Error(`Error en el servicio de IA: ${errorMsg}`);
+    throw new Error(`Error en el servicio de IA: ${e.message}`);
   }
 }
 
 export async function summarizeCV(cvText: string): Promise<string> {
-  const prompt = `
-    Eres un experto en reclutamiento técnico y marca personal. 
-    Analiza el siguiente texto de un CV o perfil profesional y genera un resumen ejecutivo profesional de máximo 200 palabras.
-    
-    El resumen debe destacar:
-    1. Experiencia principal y roles clave.
-    2. Habilidades técnicas (especialmente en infraestructura, centros de datos o IA si están presentes).
-    3. Logros significativos.
-    
-    TEXTO DEL CV:
-    ${cvText}
-    
-    Genera solo el texto del resumen, en un tono profesional y directo, listo para ser usado como bio o perfil profesional.
-  `;
-
   try {
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      contents: prompt,
+      contents: `Resume este CV en máximo 200 palabras, destacando experiencia técnica en Data Centers e IA:\n\n${cvText}`,
     });
-
-    return response.text || "";
-  } catch (e: any) {
+    return result.text || "";
+  } catch (e) {
     console.error("Error summarizing CV:", e);
-    return "";
+    return cvText.substring(0, 500); // Return first 500 chars as fallback
   }
 }
 
 export async function generateImagePromptFromScript(script: string): Promise<string> {
-  const prompt = `
-    Eres un experto en generación de prompts para IA de imagen (DALL-E, Midjourney, Pollinations).
-    Analiza el siguiente título o extracto de un post de LinkedIn y genera un prompt artístico, técnico y minimalista en INGLÉS.
-    
-    CONTENIDO DEL POST:
-    ${script}
-    
-    REGLAS:
-    - El prompt debe ser en INGLÉS.
-    - Debe describir una escena profesional de tecnología, centros de datos o infraestructura de IA.
-    - Estilo: Photography profesional, iluminación cinematográfica, 8k, ultra detallado, composición limpia.
-    - NO incluyas texto dentro de la imagen.
-    - Genera SOLO el texto del prompt, sin explicaciones.
-  `;
-
   try {
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      contents: prompt,
+      contents: `Genera un prompt artístico en INGLÉS para este contenido de LinkedIn (sin explicaciones, solo el prompt):\n\n${script}`,
     });
-
-    return response.text || "Data center technology, professional photography, cinematic lighting";
+    return result.text || "Data center technology";
   } catch (e) {
-    console.error("Error generating image prompt:", e);
-    return "Data center technology, professional photography, cinematic lighting";
+    return "Data center technology";
   }
 }
