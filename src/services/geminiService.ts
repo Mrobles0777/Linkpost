@@ -46,9 +46,9 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini (Banana mode) for topic:", topic);
+    console.log("Calling Gemini 1.5 Flash for topic:", topic);
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -69,10 +69,8 @@ export async function generateLinkedInContent(
       }
     });
 
-    console.log("Gemini Raw Response Received");
     const text = response.text;
     if (!text) {
-      console.error("Gemini response.text is empty. Full response:", response);
       throw new Error("No content received from Gemini");
     }
 
@@ -81,8 +79,6 @@ export async function generateLinkedInContent(
     return parsed as LinkedInPost;
   } catch (e: any) {
     console.error("Detailed Gemini Service Error:", e);
-    // Log specifics if available
-    if (e.response) console.error("Gemini Error Response:", e.response);
     throw new Error(`Error en el servicio de IA: ${e.message || "Error desconocido"}`);
   }
 }
@@ -104,7 +100,7 @@ export async function summarizeCV(cvText: string): Promise<string> {
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-1.5-flash",
     contents: prompt,
   });
 
@@ -128,7 +124,7 @@ export async function generateImagePromptFromScript(script: string): Promise<str
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-1.5-flash",
     contents: prompt,
   });
 
