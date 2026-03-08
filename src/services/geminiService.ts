@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Better safe than sorry: handle different ways process.env might be available
+const apiKey = process.env.GEMINI_API_KEY || "";
+
+if (!apiKey) {
+  console.warn("WARNING: GEMINI_API_KEY is not defined. AI generation will fail.");
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 export interface LinkedInPost {
   hook: string;
@@ -47,8 +54,13 @@ export async function generateLinkedInContent(
 
   try {
     console.log("Calling Gemini 1.5 Pro for topic:", topic);
+    
+    if (!apiKey) {
+      throw new Error("API Key de Gemini no encontrada. Por favor verifica tu archivo .env");
+    }
+
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-pro",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -71,15 +83,22 @@ export async function generateLinkedInContent(
 
     const text = response.text;
     if (!text) {
-      throw new Error("No content received from Gemini");
+      throw new Error("No se recibió contenido de Gemini (respuesta vacía)");
     }
 
     const parsed = JSON.parse(text);
-    console.log("Gemini Parsed Response:", parsed);
+    console.log("Gemini 1.5 Pro Parsed Response:", parsed);
     return parsed as LinkedInPost;
   } catch (e: any) {
     console.error("Detailed Gemini Service Error:", e);
-    throw new Error(`Error en el servicio de IA: ${e.message || "Error desconocido"}`);
+    // Be very explicit with the error message for the user
+    let errorMsg = e.message || "Error desconocido";
+    if (errorMsg.includes("API key not valid")) {
+      errorMsg = "La API Key de Gemini no es válida o ha expirado.";
+    } else if (errorMsg.includes("quota")) {
+      errorMsg = "Se ha excedido la cuota gratuita de tu API Key.";
+    }
+    throw new Error(`Error en el servicio de IA: ${errorMsg}`);
   }
 }
 
@@ -99,12 +118,17 @@ export async function summarizeCV(cvText: string): Promise<string> {
     Genera solo el texto del resumen, en un tono profesional y directo, listo para ser usado como bio o perfil profesional.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
-    contents: prompt,
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-pro",
+      contents: prompt,
+    });
 
-  return response.text || "";
+    return response.text || "";
+  } catch (e: any) {
+    console.error("Error summarizing CV:", e);
+    return "";
+  }
 }
 
 export async function generateImagePromptFromScript(script: string): Promise<string> {
@@ -123,10 +147,15 @@ export async function generateImagePromptFromScript(script: string): Promise<str
     - Genera SOLO el texto del prompt, sin explicaciones.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
-    contents: prompt,
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-pro",
+      contents: prompt,
+    });
 
-  return response.text || "Data center technology, professional photography, cinematic lighting";
+    return response.text || "Data center technology, professional photography, cinematic lighting";
+  } catch (e) {
+    console.error("Error generating image prompt:", e);
+    return "Data center technology, professional photography, cinematic lighting";
+  }
 }
