@@ -421,7 +421,7 @@ export default function App() {
             </p>
           </div>
 
-          <div className="p-10 space-y-8">
+          <div className="p-6 md:p-10 space-y-6 md:space-y-8">
             <div className="text-center space-y-3">
               <h3 className="text-slate-800 font-bold text-lg">Bienvenido de nuevo</h3>
               <p className="text-slate-500 text-sm">
@@ -464,7 +464,7 @@ export default function App() {
     <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans selection:bg-[#0A66C2]/10 leading-relaxed">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-[#0A66C2] p-2 rounded-xl shadow-lg shadow-[#0A66C2]/20">
               <Database className="w-6 h-6 text-white" />
@@ -474,7 +474,7 @@ export default function App() {
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider -mt-1">Professional Creator</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6">
             <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-200">
               <div className={cn(
                 "w-2 h-2 rounded-full",
@@ -484,7 +484,7 @@ export default function App() {
                 {isConnected ? 'LinkedIn Sync' : 'LinkedIn Link'}
               </span>
             </div>
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
+            <div className="flex items-center gap-1 md:gap-2 border-l border-slate-200 pl-3 md:pl-6">
               <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="p-2.5 text-slate-400 hover:text-[#0A66C2] hover:bg-slate-50 rounded-xl transition-all"
@@ -534,7 +534,7 @@ export default function App() {
                 </button>
               </div>
 
-              <form onSubmit={handleUpdateSettings} className="p-8 space-y-8">
+              <form onSubmit={handleUpdateSettings} className="p-5 md:p-8 space-y-6 md:space-y-8 max-h-[80vh] overflow-y-auto">
                 {/* CV Section */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -609,7 +609,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 md:pt-4">
                   <button
                     type="button"
                     onClick={() => setIsSettingsOpen(false)}
@@ -632,9 +632,9 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <main className="max-w-6xl mx-auto px-4 md:px-6 py-6 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
         {/* Left Column: Inputs */}
-        <div className="lg:col-span-5 space-y-8">
+        <div className="lg:col-span-5 space-y-6 md:space-y-8">
           <section className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -658,7 +658,7 @@ export default function App() {
                 </button>
               )}
             </div>
-            <div className="p-7 space-y-6">
+            <div className="p-5 md:p-7 space-y-5 md:space-y-6">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Resumen Ejecutivo / CV</label>
@@ -704,7 +704,7 @@ export default function App() {
               </div>
               <h2 className="font-bold text-xs uppercase tracking-[0.15em] text-slate-500">Configuración del Post</h2>
             </div>
-            <div className="p-7 space-y-7">
+            <div className="p-5 md:p-7 space-y-5 md:space-y-7">
               <div>
                 <label className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Tema a Potenciar</label>
                 <input
@@ -746,10 +746,10 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-2 md:pt-4">
                 <button
                   onClick={handleClear}
-                  className="px-6 py-4 bg-slate-50 text-slate-500 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-all border border-slate-200"
+                  className="px-4 md:px-6 py-3 md:py-4 bg-slate-50 text-slate-500 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-all border border-slate-200"
                 >
                   Reset
                 </button>
@@ -757,7 +757,7 @@ export default function App() {
                   onClick={handleGenerate}
                   disabled={isGenerating || !topic}
                   className={cn(
-                    "flex-1 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-[0.98]",
+                    "flex-1 py-3 md:py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-[0.98]",
                     isGenerating || !topic
                       ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
                       : "bg-[#0A66C2] text-white hover:bg-[#004182] shadow-[#0A66C2]/20 shadow-lg"
@@ -899,10 +899,10 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="max-w-[550px] mx-auto grid grid-cols-2 gap-4">
+                <div className="max-w-[550px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <button
                     onClick={copyFullPost}
-                    className="py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-3 text-sm shadow-sm"
+                    className="py-3 md:py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-3 text-sm shadow-sm"
                   >
                     {copiedSection === 'full' ? (
                       <><Check className="w-4 h-4 text-emerald-500" /> Copiado</>
@@ -914,7 +914,7 @@ export default function App() {
                   <button
                     onClick={handleSuggestImage}
                     disabled={isGeneratingImage || !post}
-                    className="py-4 bg-[#0A66C2] text-white rounded-2xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-3 text-sm shadow-lg shadow-[#0A66C2]/20 disabled:opacity-50"
+                    className="py-3 md:py-4 bg-[#0A66C2] text-white rounded-2xl font-bold hover:bg-[#004182] transition-all flex items-center justify-center gap-3 text-sm shadow-lg shadow-[#0A66C2]/20 disabled:opacity-50"
                   >
                     {isGeneratingImage ? (
                       <><RefreshCw className="w-4 h-4 animate-spin" /> Generando...</>
