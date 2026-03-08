@@ -706,14 +706,19 @@ export default function App() {
             </div>
             <div className="p-5 md:p-7 space-y-5 md:space-y-7">
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Tema a Potenciar</label>
-                <input
-                  type="text"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="Ej: Innovación en sostenibilidad para Data Centers"
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-[#0A66C2]/5 outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="Ej: Innovación en sostenibilidad para Data Centers"
+                    maxLength={100}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-[#0A66C2]/5 outline-none pr-16"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                    {topic.length}/100
+                  </div>
+                </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {exampleTopics.map((t, idx) => (
                     <button
