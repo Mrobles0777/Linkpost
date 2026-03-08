@@ -7,7 +7,11 @@ if (!apiKey) {
   console.warn("WARNING: GEMINI_API_KEY is not defined. AI generation will fail.");
 }
 
-const ai = new GoogleGenAI({ apiKey });
+// Explicitly setting apiVersion to "v1" for better stability
+const ai = new GoogleGenAI({ 
+  apiKey,
+  apiVersion: "v1" 
+});
 
 export interface LinkedInPost {
   hook: string;
@@ -53,14 +57,14 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini 1.5 Pro for topic:", topic);
+    console.log("Calling Gemini 1.5 Flash (v1) for topic:", topic);
     
     if (!apiKey) {
       throw new Error("API Key de Gemini no encontrada. Por favor verifica tu archivo .env");
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -87,17 +91,22 @@ export async function generateLinkedInContent(
     }
 
     const parsed = JSON.parse(text);
-    console.log("Gemini 1.5 Pro Parsed Response:", parsed);
+    console.log("Gemini 1.5 Flash Parsed Response:", parsed);
     return parsed as LinkedInPost;
   } catch (e: any) {
     console.error("Detailed Gemini Service Error:", e);
     // Be very explicit with the error message for the user
     let errorMsg = e.message || "Error desconocido";
-    if (errorMsg.includes("API key not valid")) {
+    
+    // Check for JSON error objects from the API
+    if (e.status === 404) {
+      errorMsg = "El modelo seleccionado no está disponible para tu API Key o versión de API. He intentado usar gemini-1.5-flash en la v1.";
+    } else if (errorMsg.includes("API key not valid")) {
       errorMsg = "La API Key de Gemini no es válida o ha expirado.";
     } else if (errorMsg.includes("quota")) {
       errorMsg = "Se ha excedido la cuota gratuita de tu API Key.";
     }
+    
     throw new Error(`Error en el servicio de IA: ${errorMsg}`);
   }
 }
@@ -120,7 +129,7 @@ export async function summarizeCV(cvText: string): Promise<string> {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-1.5-flash",
       contents: prompt,
     });
 
@@ -142,14 +151,14 @@ export async function generateImagePromptFromScript(script: string): Promise<str
     REGLAS:
     - El prompt debe ser en INGLÉS.
     - Debe describir una escena profesional de tecnología, centros de datos o infraestructura de IA.
-    - Estilo: Fotografía profesional, iluminación cinematográfica, 8k, ultra detallado, composición limpia.
+    - Estilo: Photography profesional, iluminación cinematográfica, 8k, ultra detallado, composición limpia.
     - NO incluyas texto dentro de la imagen.
     - Genera SOLO el texto del prompt, sin explicaciones.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-1.5-flash",
       contents: prompt,
     });
 
