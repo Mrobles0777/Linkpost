@@ -44,11 +44,11 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini 2.0 Flash for topic:", topic);
+    console.log("Calling Gemini (flash-latest) for topic:", topic);
     
-    // We use "gemini-2.0-flash" which is confirmed available in the model list
+    // Using gemini-flash-latest which is confirmed working with current quota
     const result = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-flash-latest",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -76,11 +76,11 @@ export async function generateLinkedInContent(
   } catch (e: any) {
     console.error("Gemini Error:", e);
     
-    // If structured output fails, try fallback
+    // Fallback if structured output fails
     try {
-      console.log("Attempting fallback without structured output config for Gemini 2.0...");
+      console.log("Attempting fallback without structured output config...");
       const fallbackResult = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-flash-latest",
         contents: prompt + "\n\nResponde únicamente con un objeto JSON válido que contenga los campos: hook, body, cta, hashtags (array), imageKeywords.",
       });
       const fallbackText = fallbackResult.text;
@@ -92,14 +92,18 @@ export async function generateLinkedInContent(
       console.error("Fallback also failed:", fallbackErr);
     }
     
-    throw new Error(`Error en el servicio de IA: ${e.message}`);
+    let errorMsg = e.message || "Error desconocido";
+    if (errorMsg.includes("429")) {
+      errorMsg = "Se ha agotado la cuota de la API Key. Por favor intenta en unos minutos o usa una clave con mayor límite.";
+    }
+    throw new Error(`Error en el servicio de IA: ${errorMsg}`);
   }
 }
 
 export async function summarizeCV(cvText: string): Promise<string> {
   try {
     const result = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-flash-latest",
       contents: `Resume este CV en máximo 200 palabras, destacando experiencia técnica en Data Centers e IA:\n\n${cvText}`,
     });
     return result.text || "";
@@ -112,7 +116,7 @@ export async function summarizeCV(cvText: string): Promise<string> {
 export async function generateImagePromptFromScript(script: string): Promise<string> {
   try {
     const result = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-flash-latest",
       contents: `Genera un prompt artístico en INGLÉS para este contenido de LinkedIn (sin explicaciones, solo el prompt):\n\n${script}`,
     });
     return result.text || "Data center technology";
