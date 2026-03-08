@@ -44,15 +44,13 @@ export async function generateLinkedInContent(
   `;
 
   try {
-    console.log("Calling Gemini 1.5 Flash (default version) for topic:", topic);
+    console.log("Calling Gemini 2.0 Flash for topic:", topic);
     
+    // We use "gemini-2.0-flash" which is confirmed available in the model list
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
-        // Structured output can sometimes be finicky depending on the SDK/API version combo.
-        // We'll try without the strict schema first if hits errors, 
-        // but let's try the standard way with the default API version (v1beta usually).
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -78,23 +76,20 @@ export async function generateLinkedInContent(
   } catch (e: any) {
     console.error("Gemini Error:", e);
     
-    // FALLBACK: If structured output fails with 400, try a plain text call and manual parse
-    if (e.message?.includes("400") || e.message?.includes("Invalid JSON payload")) {
-      console.log("Attempting fallback without structured output config...");
-      try {
-        const fallbackResult = await ai.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: prompt + "\n\nResponde únicamente con un objeto JSON válido que contenga los campos: hook, body, cta, hashtags (array), imageKeywords.",
-        });
-        const fallbackText = fallbackResult.text;
-        if (fallbackText) {
-          // Clean the text in case it has markdown blocks
-          const cleaned = fallbackText.replace(/```json|```/g, "").trim();
-          return JSON.parse(cleaned) as LinkedInPost;
-        }
-      } catch (fallbackErr) {
-        console.error("Fallback also failed:", fallbackErr);
+    // If structured output fails, try fallback
+    try {
+      console.log("Attempting fallback without structured output config for Gemini 2.0...");
+      const fallbackResult = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt + "\n\nResponde únicamente con un objeto JSON válido que contenga los campos: hook, body, cta, hashtags (array), imageKeywords.",
+      });
+      const fallbackText = fallbackResult.text;
+      if (fallbackText) {
+        const cleaned = fallbackText.replace(/```json|```/g, "").trim();
+        return JSON.parse(cleaned) as LinkedInPost;
       }
+    } catch (fallbackErr) {
+      console.error("Fallback also failed:", fallbackErr);
     }
     
     throw new Error(`Error en el servicio de IA: ${e.message}`);
@@ -104,20 +99,20 @@ export async function generateLinkedInContent(
 export async function summarizeCV(cvText: string): Promise<string> {
   try {
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Resume este CV en máximo 200 palabras, destacando experiencia técnica en Data Centers e IA:\n\n${cvText}`,
     });
     return result.text || "";
   } catch (e) {
     console.error("Error summarizing CV:", e);
-    return cvText.substring(0, 500); // Return first 500 chars as fallback
+    return cvText.substring(0, 500);
   }
 }
 
 export async function generateImagePromptFromScript(script: string): Promise<string> {
   try {
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Genera un prompt artístico en INGLÉS para este contenido de LinkedIn (sin explicaciones, solo el prompt):\n\n${script}`,
     });
     return result.text || "Data center technology";
