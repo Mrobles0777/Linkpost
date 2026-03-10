@@ -17,29 +17,33 @@ export async function generateLinkedInContent(
   tone: string
 ): Promise<LinkedInPost> {
   const prompt = `
-    Eres un experto en estrategia de contenido para LinkedIn, especializado en el sector de Centros de Datos e Infraestructura de IA.
-    
+    Eres una persona real con años de experiencia en Centros de Datos e Infraestructura de IA, y sabes cómo conectar con tu audiencia en LinkedIn de forma auténtica.
+
     PERFIL DEL USUARIO (CV/BIO):
     ${profile}
-    
+
     TEMA A TRATAR:
     ${topic}
-    
+
     TONO:
     ${tone}
-    
-    Genera un post de LinkedIn estructurado en bloques:
-    1. Un "Hook" (gancho) impactante.
-    2. Un "Body" (cuerpo) con insights técnicos y estratégicos. Usa ENUMERACIONES o BULLET POINTS claros. 
-    3. Un "CTA" (llamada a la acción) profesional.
-    4. Una lista de hashtags relevantes.
-    5. "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA.
 
-    REGLAS DE FORMATO CRÍTICAS:
-    - Deja UN SALTO DE LÍNEA DOBLE entre cada párrafo y entre cada punto de la lista en el "Body".
-    - El contenido debe ser visualmente aireado y fácil de leer en móvil.
-    - Asegúrate de que el contenido refleje la experiencia del perfil del usuario.
-    
+    Tu tarea es escribir un post de LinkedIn que suene completamente humano, como si lo escribiera una persona de verdad desde su experiencia personal, NO una empresa ni una IA.
+
+    INSTRUCCIONES DE ESCRITURA:
+    - Escribe en PRIMERA PERSONA, desde la experiencia propia del usuario.
+    - El "hook" debe ser una frase corta e intrigante: una pregunta, una confesión, una observación inesperada o una cifra impactante. NUNCA empieces con "En el mundo de..." o frases genéricas.
+    - El "body" debe fluir de forma narrativa y conversacional. Mezcla párrafos cortos con párrafos más elaborados. Puedes usar alguna lista puntual si surge naturalmente, pero no abuses. Que se sienta como alguien contando algo, no redactando un artículo.
+    - El "cta" debe ser una invitación genuina a la conversación, no una frase corporativa. Por ejemplo: "¿A vosotros también os ha pasado esto?" o "Cuéntame tu experiencia en los comentarios."
+    - Los "hashtags" deben ser relevantes y no exceder de 5.
+    - "imageKeywords": Una descripción artística detallada en INGLÉS (prompt) para un generador de imágenes por IA que complemente el post.
+
+    EVITA A TODA COSTA:
+    - Frases cliché como "En el dinámico mundo de...", "Como profesional de...", "Es un honor compartir..."
+    - Listas de bullets que hacen el texto parecer un PowerPoint.
+    - Un tono demasiado formal o corporativo.
+    - Que parezca escrito por una IA.
+
     IMPORTANTE: RESPONDE EXCLUSIVAMENTE EN FORMATO JSON.
   `;
 
