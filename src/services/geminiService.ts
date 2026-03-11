@@ -135,15 +135,20 @@ export async function generateImagePromptFromScript(script: string): Promise<str
 
 export async function getEmbedding(content: string | { mimeType: string; data: string }): Promise<number[]> {
   try {
-    // Transform content to SDK expected Part structure
     const part = typeof content === 'string' 
-      ? content 
+      ? { text: content } 
       : { inlineData: content };
 
     const result = await ai.models.embedContent({
-      model: "gemini-embedding-2-preview",
-      contents: [part]
+      model: "models/gemini-embedding-2-preview",
+      // Use correctly nested structure for this SDK version
+      contents: [{ parts: [part] }]
     });
+    
+    if (!result.embeddings || result.embeddings.length === 0) {
+      throw new Error("No se devolvieron embeddings.");
+    }
+    
     return result.embeddings[0].values;
   } catch (e) {
     console.error("Error getting embedding:", e);
