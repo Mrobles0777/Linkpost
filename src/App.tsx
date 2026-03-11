@@ -18,7 +18,7 @@ import {
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateLinkedInContent, LinkedInPost, summarizeCV, generateImagePromptFromScript } from './services/geminiService';
+import { generateLinkedInContent, LinkedInPost, summarizeCV, generateImagePromptFromScript, validateImageRelevance, refineImagePrompt } from './services/geminiService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { supabase } from './lib/supabase';
@@ -63,6 +63,7 @@ export default function App() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -351,20 +352,49 @@ export default function App() {
   const handleSuggestImage = async () => {
     if (!post || !post.imageKeywords) return;
     setIsGeneratingImage(true);
+    setSimilarityScore(null);
+    
     try {
-      // Refine the prompt using Gemini first
-      const refinedPrompt = await generateImagePromptFromScript(post.imageKeywords || topic);
-      const proxyUrl = `/api/image/search?q=${encodeURIComponent(refinedPrompt)}`;
-      const imgRes = await fetch(proxyUrl);
-      if (imgRes.ok) {
-        const imgData = await imgRes.json();
-        if (imgData.url) {
-          setSelectedImage(imgData.url);
+      let currentPrompt = await generateImagePromptFromScript(post.imageKeywords || topic);
+      let bestImage = null;
+      let bestScore = 0;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 2;
+
+      while (attempts < MAX_ATTEMPTS) {
+        console.log(`Attempt ${attempts + 1}: Generating image with prompt: ${currentPrompt}`);
+        const proxyUrl = `/api/image/search?q=${encodeURIComponent(currentPrompt)}`;
+        const imgRes = await fetch(proxyUrl);
+        
+        if (imgRes.ok) {
+          const imgData = await imgRes.json();
+          if (imgData.url) {
+            const score = await validateImageRelevance(post.body || topic, imgData.url);
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestImage = imgData.url;
+            }
+
+            if (score >= 0.7) { // Good enough
+              break;
+            }
+
+            // If not good enough, refine prompt for next attempt
+            currentPrompt = await refineImagePrompt(currentPrompt, post.body, score);
+          }
         }
+        attempts++;
+      }
+
+      if (bestImage) {
+        setSelectedImage(bestImage);
+        setSimilarityScore(bestScore);
       }
     } catch (e) {
-      console.error("Error fetching image through proxy:", e);
+      console.error("Error in handleSuggestImage:", e);
       setSelectedImage(`https://images.unsplash.com/photo-1558494949-ef010cbdcc48?q=80&w=1200&auto=format&fit=crop`);
+      setSimilarityScore(null);
     } finally {
       setIsGeneratingImage(false);
     }
@@ -874,6 +904,21 @@ export default function App() {
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      
+                      {/* AI Verification Badge */}
+                      {similarityScore !== null && (
+                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur px-2.5 py-1 rounded-full border border-emerald-100 shadow-sm z-10">
+                          <Check className={cn(
+                            "w-3 h-3",
+                            similarityScore > 0.65 ? "text-emerald-500" : "text-amber-500"
+                          )} />
+                          <span className="text-[9px] font-bold text-slate-700 uppercase tracking-wider">
+                            {similarityScore > 0.65 ? 'IA Verificada' : 'IA Analizada'} 
+                            <span className="ml-1 opacity-50">{(similarityScore * 100).toFixed(0)}%</span>
+                          </span>
+                        </div>
+                      )}
+
                       <button
                         onClick={() => setSelectedImage(null)}
                         className="absolute top-4 right-4 p-2 bg-white/90 backdrop-blur text-slate-900 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-lg active:scale-90"

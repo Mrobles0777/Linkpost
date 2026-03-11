@@ -128,3 +128,92 @@ export async function generateImagePromptFromScript(script: string): Promise<str
     return "Data center technology";
   }
 }
+
+/**
+ * NEW: Gemini Embedding 2 Multimodal Logic
+ */
+
+export async function getEmbedding(content: string | { mimeType: string; data: string }): Promise<number[]> {
+  try {
+    // Transform content to SDK expected Part structure
+    const part = typeof content === 'string' 
+      ? content 
+      : { inlineData: content };
+
+    const result = await ai.models.embedContent({
+      model: "gemini-embedding-2-preview",
+      contents: [part]
+    });
+    return result.embeddings[0].values;
+  } catch (e) {
+    console.error("Error getting embedding:", e);
+    throw e;
+  }
+}
+
+export function calculateSimilarity(vecA: number[], vecB: number[]): number {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+export async function validateImageRelevance(text: string, imageUrl: string): Promise<number> {
+  try {
+    console.log("Validating image relevance using Multimodal Embeddings (Gemini 2)...");
+    
+    // 1. Fetch image and convert to base64 using browser-compatible way
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    // 2. Get embeddings in parallel
+    const [textEmbedding, imageEmbedding] = await Promise.all([
+      getEmbedding(text),
+      getEmbedding({
+        mimeType: blob.type || "image/jpeg",
+        data: base64Data,
+      }),
+    ]);
+
+    // 3. Calculate cosine similarity
+    const score = calculateSimilarity(textEmbedding, imageEmbedding);
+    console.log(`Similarity score: ${score.toFixed(4)}`);
+    return score;
+  } catch (e) {
+    console.error("Error in validateImageRelevance:", e);
+    return 0.5; // Neutral fallback
+  }
+}
+
+export async function refineImagePrompt(originalPrompt: string, postContent: string, previousScore: number): Promise<string> {
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-flash-latest",
+      contents: `
+        El siguiente contenido de LinkedIn necesita una imagen: "${postContent}"
+        El prompt anterior fue: "${originalPrompt}"
+        La relevancia obtenida fue baja (${previousScore.toFixed(2)}).
+        
+        Genera un nuevo prompt artístico en INGLÉS que sea más específico, técnico y visualmente impactante para representar fielmente el contenido. Solo devuelve el prompt.
+      `,
+    });
+    return result.text || originalPrompt;
+  } catch (e) {
+    return originalPrompt;
+  }
+}
